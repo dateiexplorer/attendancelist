@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dateiexplorer/attendance-list/pkg/timeutil"
+	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 )
 
 // A Journal represents a journal file with a date an severeal journal entries
@@ -182,6 +182,10 @@ type Person struct {
 	firstName string
 	lastName  string
 	address   Address
+}
+
+func NewPerson(firstName, lastName, street, number, zipCode, city string) Person {
+	return Person{firstName, lastName, Address{street, number, zipCode, city}}
 }
 
 // An Address represents a place where a people live.

@@ -1,1 +1,5 @@
-package analyzer
+package main
+
+func main() {
+
+}

@@ -4,8 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/dateiexplorer/attendance-list/pkg/convert/csv"
-	"github.com/dateiexplorer/attendance-list/pkg/timeutil"
+	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -174,43 +173,10 @@ func TestHeader(t *testing.T) {
 	assert.Equal(t, expected, actual)
 }
 
-func TestConvertToCSV(t *testing.T) {
-	expected := `FirstName,LastName,Street,Number,ZipCode,City,Login,Logout
-Hans,Müller,Feldweg,12,74722,Buchen,13:40:11,
-Otto,Normalverbraucher,Dieselstraße,52,70376,Stuttgart,17:32:45,19:15:12
-`
+func TestNewPerson(t *testing.T) {
+	expected := Person{"Max", "Mustermann", Address{"Musterstraße", "20", "74821", "Mosbach"}}
 
-	// Prepare list
-	list := AttendanceList{
-		NewAttendanceEntry(persons["Hans Müller"], timeutil.NewTimestamp(2021, 10, 15, 13, 40, 11), timeutil.InvalidTimestamp),
-		NewAttendanceEntry(persons["Otto Normalverbraucher"], timeutil.NewTimestamp(2021, 10, 15, 17, 32, 45), timeutil.NewTimestamp(2021, 10, 15, 19, 15, 12)),
-	}
+	actual := NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
 
-	err := csv.Convert("testdata/2021-10-15_Alte-Mälzerei_Test.csv", list)
-	assert.NoError(t, err)
-
-	// Read file
-	bytes, err := os.ReadFile("testdata/2021-10-15_Alte-Mälzerei_Test.csv")
-	actual := string(bytes)
-
-	assert.NoError(t, err)
-	assert.Equal(t, expected, actual)
-}
-
-func TestConvertEmptyAttendanceListToCSV(t *testing.T) {
-	expected := `FirstName,LastName,Street,Number,ZipCode,City,Login,Logout
-`
-
-	// Prepare list
-	list := AttendanceList{}
-
-	err := csv.Convert("testdata/2021-10-15_Empty_Test.csv", list)
-	assert.NoError(t, err)
-
-	// Read file
-	bytes, err := os.ReadFile("testdata/2021-10-15_Empty_Test.csv")
-	actual := string(bytes)
-
-	assert.NoError(t, err)
 	assert.Equal(t, expected, actual)
 }
