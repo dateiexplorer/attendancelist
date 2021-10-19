@@ -13,10 +13,10 @@ import (
 	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 )
 
-// A Journal represents a journal file with a date an severeal journal entries
+// A Journal represents a journal file with a date an severeal JournalEntries
 type Journal struct {
 	date    timeutil.Date
-	entries []journalEntry
+	entries []JournalEntry
 }
 
 // ReadJournal reads data from a file for a specific date on the filesystem and
@@ -45,14 +45,14 @@ type Journal struct {
 //
 // An error returned if the specific journal file cannot be open or cannot be
 // parsed. If an error occured the functions returns also an empty Journal which
-// contains the date and an empty slice of journal entries.
+// contains the date and an empty slice of JournalEntries.
 func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
-	entries := []journalEntry{}
+	entries := []JournalEntry{}
 
 	// Open file
 	f, err := os.Open(path.Join(dir, date.String()+".log"))
 	if err != nil {
-		return Journal{date, []journalEntry{}}, fmt.Errorf("cannot open journal file: %w", err)
+		return Journal{date, []JournalEntry{}}, fmt.Errorf("cannot open journal file: %w", err)
 	}
 
 	defer f.Close()
@@ -66,24 +66,52 @@ func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 
 		timestamp, err := timeutil.ParseTimestamp(values[0])
 		if err != nil {
-			return Journal{date, []journalEntry{}}, fmt.Errorf("cannot parse timestamp of journal file on line %v: %w", i, err)
+			return Journal{date, []JournalEntry{}}, fmt.Errorf("cannot parse timestamp of journal file on line %v: %w", i, err)
 		}
 
 		id := values[1]
 
 		action, err := strconv.Atoi(values[2])
 		if err != nil {
-			return Journal{date, []journalEntry{}}, fmt.Errorf("cannot parse action of journal file on line %v: %w", i, err)
+			return Journal{date, []JournalEntry{}}, fmt.Errorf("cannot parse action of journal file on line %v: %w", i, err)
 		}
 
 		location := Location{values[3]}
 		person := Person{values[4], values[5], Address{values[6], values[7], values[8], values[9]}}
 
-		entry := journalEntry{timestamp, sessionIdentifier(id), Event(action), location, person}
+		entry := JournalEntry{timestamp, sessionIdentifier(id), Event(action), location, person}
 		entries = append(entries, entry)
 	}
 
 	return Journal{date, entries}, nil
+}
+
+// WriteToJournalFile appends a JournalEntry e to the corresponding journal file in
+// the dir directory.
+// The JournalEntry will be written in the file named "yyyy-MM-dd.log". The
+// date will be extracted from the journalEntries timestamp itself.
+//
+// The functions returns an error if the writing operations causes an error.
+func WriteToJournalFile(dir string, e JournalEntry) error {
+	// Get wright journal file for this entry.
+	// Every day has it's own journal file.
+	date := e.timestamp.Date()
+	f, err := os.OpenFile(path.Join(dir, date.String()+".log"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot write to journal file: %w", err)
+	}
+
+	defer f.Close()
+
+	// Write to journal file
+	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.timestamp, e.session, e.event, e.location.name, e.person.firstName, e.person.lastName,
+		e.person.address.street, e.person.address.number, e.person.address.zipCode, e.person.address.city)
+	_, err = f.WriteString(s)
+	if err != nil {
+		return fmt.Errorf("cannot write to journal file: %w", err)
+	}
+
+	return nil
 }
 
 // GetVisitedLocationsForPerson returns a slice of Locations which Person p has visited.
@@ -149,13 +177,13 @@ func (j Journal) GetAttendanceListForLocation(l Location) AttendanceList {
 	return list
 }
 
-// A sessionIdentifier identifies which journal entries match together.
+// A sessionIdentifier identifies which JournalEntries match together.
 // This is important since the journal file documents the login and logout for a
-// user in two separate journal entries.
+// user in two separate JournalEntries.
 type sessionIdentifier string
 
-// A journalEntry represents one row in the Journal.
-type journalEntry struct {
+// A JournalEntry represents one row in the Journal.
+type JournalEntry struct {
 	timestamp timeutil.Timestamp
 	session   sessionIdentifier
 	event     Event
@@ -163,7 +191,7 @@ type journalEntry struct {
 	person    Person
 }
 
-// An Event represents the reason why a new journal entry was written into the
+// An Event represents the reason why a new JournalEntry was written into the
 // journal file.
 type Event int
 
@@ -184,6 +212,7 @@ type Person struct {
 	address   Address
 }
 
+// NewPerson returns a new Person with the given attributes.
 func NewPerson(firstName, lastName, street, number, zipCode, city string) Person {
 	return Person{firstName, lastName, Address{street, number, zipCode, city}}
 }

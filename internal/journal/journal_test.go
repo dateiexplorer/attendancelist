@@ -2,6 +2,7 @@ package journal
 
 import (
 	"os"
+	"path"
 	"testing"
 
 	"github.com/dateiexplorer/attendancelist/internal/timeutil"
@@ -28,7 +29,7 @@ var persons = map[string]Person{
 
 // 8.1) Read journal file for a specific date
 func TestReadJournal(t *testing.T) {
-	expected := Journal{timeutil.NewDate(2021, 10, 15), []journalEntry{
+	expected := Journal{timeutil.NewDate(2021, 10, 15), []JournalEntry{
 		{timeutil.NewTimestamp(2021, 10, 15, 6, 20, 13), "d61ec70b78628e15", Login, locations["DHBW Mosbach"], persons["Hans Müller"]},
 		{timeutil.NewTimestamp(2021, 10, 15, 9, 15, 20), "989ce491d5df53c9", Login, locations["DHBW Mosbach"], persons["Gisela Musterfrau"]},
 		{timeutil.NewTimestamp(2021, 10, 15, 12, 15, 30), "f797f342aebab436", Login, locations["DHBW Mosbach"], persons["Max Mustermann"]},
@@ -51,7 +52,7 @@ func TestReadJournal(t *testing.T) {
 }
 
 func TestReadNotExistingJournal(t *testing.T) {
-	expected := Journal{timeutil.NewDate(2020, 9, 4), []journalEntry{}}
+	expected := Journal{timeutil.NewDate(2020, 9, 4), []JournalEntry{}}
 
 	actual, err := ReadJournal("testdata", timeutil.NewDate(2020, 9, 4))
 
@@ -61,8 +62,8 @@ func TestReadNotExistingJournal(t *testing.T) {
 
 func TestReadMalformedJournal(t *testing.T) {
 	expected := []Journal{
-		{timeutil.NewDate(2020, 1, 1), []journalEntry{}},
-		{timeutil.NewDate(2020, 1, 2), []journalEntry{}},
+		{timeutil.NewDate(2020, 1, 1), []JournalEntry{}},
+		{timeutil.NewDate(2020, 1, 2), []JournalEntry{}},
 	}
 
 	for _, journal := range expected {
@@ -179,4 +180,52 @@ func TestNewPerson(t *testing.T) {
 	actual := NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
 
 	assert.Equal(t, expected, actual)
+}
+
+// 7.1) Write every login an logout to a journal file
+// 7.3) Create a journal file for every day
+// 7.4) Writee all logins and logouts for all days in one journal file for a day.
+func TestWriteToJournalFile(t *testing.T) {
+	timestamp := timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0)
+
+	expected := JournalEntry{timestamp, "aabbccddeeff", Login, locations["DHBW Mosbach"], persons["Max Mustermann"]}
+
+	err := WriteToJournalFile("testdata", expected)
+	assert.NoError(t, err)
+
+	journal, err := ReadJournal("testdata", timestamp.Date())
+	assert.NoError(t, err)
+
+	actual := journal.entries
+	assert.Equal(t, 1, len(actual))
+
+	assert.Equal(t, expected, actual[0])
+
+	err = os.Remove(path.Join("testdata", timestamp.Date().String()+".log"))
+	assert.NoError(t, err)
+}
+
+func TestWriteToJournalFileAppendEntry(t *testing.T) {
+	date := timeutil.NewDate(2021, 10, 16)
+
+	expected := []JournalEntry{
+		{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, locations["DHBW Mosbach"], persons["Max Mustermann"]},
+		{timeutil.NewTimestamp(2021, 10, 16, 17, 20, 0), "aabbccddeeff", Logout, locations["DHBW Mosbach"], persons["Max Mustermann"]},
+	}
+
+	for _, e := range expected {
+		err := WriteToJournalFile("testdata", e)
+		assert.NoError(t, err)
+	}
+
+	journal, err := ReadJournal("testdata", date)
+	assert.NoError(t, err)
+
+	actual := journal.entries
+	assert.Equal(t, 2, len(actual))
+
+	assert.Equal(t, expected, actual)
+
+	err = os.Remove(path.Join("testdata", date.String()+".log"))
+	assert.NoError(t, err)
 }

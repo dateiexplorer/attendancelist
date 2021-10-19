@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// Represents the format of an Timestamp.
+const TimestampFormat = "2006-01-02 15:04:05"
+
 var (
 	// An invalid Timestamp
 	InvalidTimestamp = NewTimestamp(1, 1, 1, 0, 0, 0)
@@ -39,7 +42,7 @@ func NewTimestamp(year int, month time.Month, day, hour, min, sec int) Timestamp
 // If the given string cannot be parsed into a timestamp an error and an
 // InvalidTimestamp will be returned.
 func ParseTimestamp(value string) (Timestamp, error) {
-	time, err := time.Parse("2006-01-02 15:04:05", value)
+	time, err := time.Parse(TimestampFormat, value)
 	if err != nil {
 		return Timestamp{time}, err
 	}
@@ -54,6 +57,17 @@ func ParseTimestamp(value string) (Timestamp, error) {
 // time package like t.Time.Clock().
 func (t Timestamp) Clock() string {
 	return fmt.Sprintf("%d:%d:%d", t.Hour(), t.Minute(), t.Second())
+}
+
+// Date returns the date part of a Timestamp as a Date structure.
+func (t Timestamp) Date() Date {
+	return NewDate(t.Time.Date())
+}
+
+// String returns the internal string representation of a Timestamp formatted as
+// "yyyy-MM-dd hh:mm:ss"
+func (t Timestamp) String() string {
+	return t.Format(TimestampFormat)
 }
 
 // A Date represents a calendar date.

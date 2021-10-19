@@ -34,6 +34,22 @@ func TestParseTimestampFailed(t *testing.T) {
 	assert.Equal(t, expected, actual)
 }
 
+func TestTimestampDate(t *testing.T) {
+	expected := Date{2021, 10, 15}
+
+	actual := NewTimestamp(2021, 10, 15, 15, 20, 10).Date()
+
+	assert.Equal(t, expected, actual)
+}
+
+func TestTimestampString(t *testing.T) {
+	expected := "2021-10-15 15:20:10"
+
+	actual := NewTimestamp(2021, 10, 15, 15, 20, 10).String()
+
+	assert.Equal(t, expected, actual)
+}
+
 func TestNewDate(t *testing.T) {
 	year, month, day := time.Date(2021, time.October, 15, 0, 0, 0, 0, time.UTC).Date()
 	expected := Date{year, month, day}
