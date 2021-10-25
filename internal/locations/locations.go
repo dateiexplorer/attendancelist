@@ -73,41 +73,37 @@ func NewAccessToken(loc Location, newId string, expireTime time.Time) AccessToke
 	return newToken
 }
 
-func NewAccessTokenGenerator(tokens ValidTokens, path string, sec int) chan time.Time{
+// vl new ids übergeben
+func AccessTokenValidator(tokens *ValidTokens, path string, sec time.Duration) {
 	locs := LocGenerator(path)
-	var expireTime chan time.Time
-
-	//1channel expiretime countdown, wie lang bis expired
-	//select
-	for {
+	expireTime := make(chan time.Time, 1000)
+	var newIds = token.RandIDGenerator(10, 1000)
+	go func() {
+		for {
 		select {
-		case now :=<-time.After(time.Duration(sec)*time.Second):
-			expireTime <- now.Add(time.Duration(sec)*time.Second)
-			for _,loc := range locs.Locations {
-				newId := <-token.RandIDGenerator(10, 1000)
-				temp := NewAccessToken(loc, newId, <-expireTime)
-				tokens[newId] = &temp
-			}
+		case now :=<-time.After(sec*time.Second):
+			GenerateNewAT(now, locs, newIds, expireTime, sec, tokens)
 		case <-expireTime:
-			for key, val := range tokens{
-				if val.valid == 2 {
-					tokens[key].valid = 1
-
-				} else if val.valid == 1 { // && endzeit am ende des tages in der map?
-					delete(tokens, key)
-				}}
+			ValidateAT(tokens)
 	}
-	/*for {
-		validationStart = time.Now()
-		expireTime = validationStart.Add(time.Second*time.Duration(sec))
+	}}()
+}
 
-		}
-
-
-
-		sleepTime = expireTime.Sub(time.Now())
-		fmt.Println(len(tokens) + expireTime.Second())
-		time.Sleep(sleepTime)*/
-	return expireTime
+func GenerateNewAT(now time.Time, locations Locations, newIds <-chan string, expireTime chan<- time.Time, sec time.Duration, tokens *ValidTokens) {
+	tempExp := now.Add(sec*time.Second)
+	expireTime <- tempExp
+	for _,loc := range locations.Locations {
+		newId := <-newIds
+		temp := NewAccessToken(loc, newId, tempExp)
+		(*tokens)[newId] = &temp
 	}
+}
+
+func ValidateAT(tokens *ValidTokens) {
+	for key, val := range *tokens{
+		if val.valid == 2 {
+			(*tokens)[key].valid = 1
+		} else if val.valid == 1 {
+			delete(*tokens, key)
+		}}
 }
