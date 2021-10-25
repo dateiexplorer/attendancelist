@@ -56,7 +56,7 @@ func ParseTimestamp(value string) (Timestamp, error) {
 // If you want the values instead of a string use the Clock function from the
 // time package like t.Time.Clock().
 func (t Timestamp) Clock() string {
-	return fmt.Sprintf("%d:%d:%d", t.Hour(), t.Minute(), t.Second())
+	return fmt.Sprintf("%02d:%02d:%02d", t.Hour(), t.Minute(), t.Second())
 }
 
 // Date returns the date part of a Timestamp as a Date structure.

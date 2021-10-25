@@ -93,11 +93,17 @@ func TestParseDateFailed(t *testing.T) {
 }
 
 func TestClock(t *testing.T) {
-	expected := "15:30:25"
+	expected := []string{"15:30:25", "06:05:09"}
 
-	timestamp := NewTimestamp(2021, 10, 15, 15, 30, 25)
-	actual := timestamp.Clock()
-	assert.Equal(t, expected, actual)
+	timestamps := []Timestamp{
+		NewTimestamp(2021, 10, 15, 15, 30, 25),
+		NewTimestamp(2021, 10, 15, 6, 5, 9),
+	}
+
+	for i, timestamp := range timestamps {
+		actual := timestamp.Clock()
+		assert.Equal(t, expected[i], actual)
+	}
 }
 
 func TestDateString(t *testing.T) {

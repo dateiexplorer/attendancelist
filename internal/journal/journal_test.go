@@ -182,6 +182,14 @@ func TestNewPerson(t *testing.T) {
 	assert.Equal(t, expected, actual)
 }
 
+func TestNewLocation(t *testing.T) {
+	expected := Location{"DHBW Mosbach"}
+
+	actual := NewLocation("DHBW Mosbach")
+
+	assert.Equal(t, expected, actual)
+}
+
 // 7.1) Write every login an logout to a journal file
 // 7.3) Create a journal file for every day
 // 7.4) Writee all logins and logouts for all days in one journal file for a day.

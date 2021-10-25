@@ -104,8 +104,8 @@ func WriteToJournalFile(dir string, e JournalEntry) error {
 	defer f.Close()
 
 	// Write to journal file
-	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.timestamp, e.session, e.event, e.location.name, e.person.firstName, e.person.lastName,
-		e.person.address.street, e.person.address.number, e.person.address.zipCode, e.person.address.city)
+	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.timestamp, e.session, e.event, e.location.name, e.person.FirstName, e.person.LastName,
+		e.person.Address.Street, e.person.Address.Number, e.person.Address.ZipCode, e.person.Address.City)
 	_, err = f.WriteString(s)
 	if err != nil {
 		return fmt.Errorf("cannot write to journal file: %w", err)
@@ -177,6 +177,10 @@ func (j Journal) GetAttendanceListForLocation(l Location) AttendanceList {
 	return list
 }
 
+func (j Journal) Entries() []JournalEntry {
+	return j.entries
+}
+
 // A sessionIdentifier identifies which JournalEntries match together.
 // This is important since the journal file documents the login and logout for a
 // user in two separate JournalEntries.
@@ -189,6 +193,10 @@ type JournalEntry struct {
 	event     Event
 	location  Location
 	person    Person
+}
+
+func (e *JournalEntry) Person() Person {
+	return e.person
 }
 
 // An Event represents the reason why a new JournalEntry was written into the
@@ -205,11 +213,15 @@ type Location struct {
 	name string
 }
 
+func NewLocation(name string) Location {
+	return Location{name}
+}
+
 // A Person represents a citizen with a name and address.
 type Person struct {
-	firstName string
-	lastName  string
-	address   Address
+	FirstName string
+	LastName  string
+	Address   Address
 }
 
 // NewPerson returns a new Person with the given attributes.
@@ -219,10 +231,10 @@ func NewPerson(firstName, lastName, street, number, zipCode, city string) Person
 
 // An Address represents a place where a people live.
 type Address struct {
-	street  string
-	number  string
-	zipCode string
-	city    string
+	Street  string
+	Number  string
+	ZipCode string
+	City    string
 }
 
 // An AttendanceList is a collection of AttendanceEntries.
@@ -246,8 +258,8 @@ func (a AttendanceList) NextEntry() <-chan []string {
 				logout = e.logout.Clock()
 			}
 
-			entries <- []string{e.person.firstName, e.person.lastName,
-				e.person.address.street, e.person.address.number, e.person.address.zipCode, e.person.address.city,
+			entries <- []string{e.person.FirstName, e.person.LastName,
+				e.person.Address.Street, e.person.Address.Number, e.person.Address.ZipCode, e.person.Address.City,
 				login, logout}
 		}
 
