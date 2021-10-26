@@ -89,13 +89,28 @@ func TestGenerateNewATNegative(t *testing.T) {
 	assert.NotEqualValues(t, expected, actual, "no right generation")
 }
 
-/*func TestValidateAT(t *testing.T) {
+func TestValidateAT(t *testing.T) {
 	locs := LocGenerator(path.Join("testdata","locations.xml"))
 	var newIds = token.RandIDGenerator(10, 1000)
+	newId1 := <-newIds
+	newId2 := <-newIds
 	now := time.Now()
-	tmpExp:= make(chan time.Time, 2)
-	actual := ValidTokens{}
-	ValidateAT()
-}*/
+	exp := now.Add(100*time.Second)
+	tmpIDs:= make(chan string, 2)
+	//tmpExp:= make(chan time.Time, 2)
+	tmpIDs<-newId1
+	tmpIDs<-newId2
+	expAT1 := NewAccessToken(locs.Locations[0], newId1, exp)
+	expAT2 := NewAccessToken(locs.Locations[1], newId2, exp)
+	expected := ValidTokens{newId1: &expAT1, newId2: &expAT2}
+
+	actual := expected
+	expected[newId1].valid = 1
+	expected[newId2].valid = 1
+	ValidateAT(&actual)
+	//GenerateNewAT(now, locs, tmpIDs, tmpExp, time.Duration(100), &actual)
+
+	assert.EqualValues(t, expected, actual, "no right validation")
+}
 
 
