@@ -17,7 +17,6 @@ var locations = Locations{[]Location{"DHBW MOSBACH", "Alte Mältzerei"}}
 func TestLocGenerator(t *testing.T) {
 	expected := locations
 	actual := LocGenerator(path.Join("testdata","locations.xml"))
-
 	assert.EqualValues(t,expected, actual,"wrong locations")
 }
 
@@ -37,11 +36,11 @@ func TestNewAccessToken(t *testing.T) {
 	}
 	exp := time.Now()
 	expected := AccessToken{
-		id:       tempId,
-		location: &loc,
-		expires:  exp,
-		valid:    2,
-		qr: tmp,
+		Id:       tempId,
+		Location: &loc,
+		Expires:  exp,
+		Valid:    2,
+		Qr:       tmp,
 	}
 	actual := NewAccessToken(loc, tempId, exp)
 	assert.EqualValues(t, expected, actual, "wrong AccessToken")
@@ -85,7 +84,6 @@ func TestGenerateNewATNegative(t *testing.T) {
 
 	actual := ValidTokens{}
 	GenerateNewAT(now, locs, tmpIDs, tmpExp, time.Duration(100), &actual)
-
 	assert.NotEqualValues(t, expected, actual, "no right generation")
 }
 
@@ -97,7 +95,6 @@ func TestValidateAT(t *testing.T) {
 	now := time.Now()
 	exp := now.Add(100*time.Second)
 	tmpIDs:= make(chan string, 2)
-	//tmpExp:= make(chan time.Time, 2)
 	tmpIDs<-newId1
 	tmpIDs<-newId2
 	expAT1 := NewAccessToken(locs.Locations[0], newId1, exp)
@@ -105,8 +102,8 @@ func TestValidateAT(t *testing.T) {
 	expected := ValidTokens{newId1: &expAT1, newId2: &expAT2}
 
 	actual := expected
-	expected[newId1].valid = 1
-	expected[newId2].valid = 1
+	expected[newId1].Valid = 1
+	expected[newId2].Valid = 1
 	ValidateAT(&actual)
 	//GenerateNewAT(now, locs, tmpIDs, tmpExp, time.Duration(100), &actual)
 
