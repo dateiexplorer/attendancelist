@@ -76,7 +76,7 @@ func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 			return Journal{date, []JournalEntry{}}, fmt.Errorf("cannot parse action of journal file on line %v: %w", i, err)
 		}
 
-		location := Location{values[3]}
+		location := Location(values[3])
 		person := Person{values[4], values[5], Address{values[6], values[7], values[8], values[9]}}
 
 		entry := JournalEntry{timestamp, sessionIdentifier(id), Event(action), location, person}
@@ -104,7 +104,7 @@ func WriteToJournalFile(dir string, e JournalEntry) error {
 	defer f.Close()
 
 	// Write to journal file
-	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.timestamp, e.session, e.event, e.location.name, e.person.FirstName, e.person.LastName,
+	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.timestamp, e.session, e.event, e.location, e.person.FirstName, e.person.LastName,
 		e.person.Address.Street, e.person.Address.Number, e.person.Address.ZipCode, e.person.Address.City)
 	_, err = f.WriteString(s)
 	if err != nil {
@@ -209,13 +209,7 @@ const (
 )
 
 // A Location represents a place where a Person can associated with.
-type Location struct {
-	name string
-}
-
-func NewLocation(name string) Location {
-	return Location{name}
-}
+type Location string
 
 // A Person represents a citizen with a name and address.
 type Person struct {
