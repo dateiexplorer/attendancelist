@@ -1,5 +1,8 @@
-window.document.onload = getQRCode();
 const imgPlace = document.querySelector('#currentQR');
+const dest = document.querySelector('#destination');
+
+window.document.onload = getQRCode();
+
 
 //Function to get the Accestokeninformation
 function getQRCode() {
@@ -10,19 +13,20 @@ function getQRCode() {
 	{
 		if(req.readyState == 4 && req.status == 200)
 		{
-			resp = JSON.parse(req.responseText);
-			console.log(resp);
-			if(resp == "")
+			
+			if(req.responseText == "")
 			{
 				console.log("kein resp");
 				setTimeout(getQRCode, 1000);
 			}
 			else
 			{
-				console.log('drin');
+				resp = JSON.parse(req.responseText);
+				console.log(resp);
 				imgPlace.src = "data:image/png;base64," + resp.Qr;
 				let exp = new Date(resp.Expires);
 				let dif = (exp - new Date().getTime());
+				dest.innerHTML = "Zugnangs-QRCode f" + unescape("%FC") +"r " + resp.Location;
 				setTimeout(getQRCode, dif);
 
 			}

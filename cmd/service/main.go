@@ -52,7 +52,7 @@ func main() {
 
 	// Initialize token map
 	// Tokens update automatically
-	validTokens = locations.AccessTokenMap(10, time.Duration(5)*time.Second, "localhost", 8081)
+	validTokens = locations.GenerateAccessTokens(10, time.Duration(5)*time.Second, "localhost", 8081)
 
 	http.HandleFunc("/newAccessTk", accessTokenDispenser)
 	// log.Fatalln(http.ListenAndServeTLS(":4443", path.Join("cert.pem"), path.Join("key.pem"), nil))

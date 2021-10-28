@@ -21,14 +21,14 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-// Sets how many tokens for a location can be used to log in.
-const LastValidTokens = 2
+// Sets how often a token can be reused after it expired.
+// A value of 0 means that a token is invalid after it expires once.
+const LastValidTokens = 1
 
 type TokenAction int
 
 const (
 	Add TokenAction = iota
-	Update
 	Invalidate
 )
 
@@ -73,7 +73,7 @@ type Locations struct {
 	Locations []journal.Location `xml:"Location"`
 }
 
-func (l Locations) AccessTokenMap(idLength int, exp time.Duration, baseUrl string, port int) *ValidTokens {
+func (l Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUrl string, port int) *ValidTokens {
 	validTokens := new(ValidTokens)
 	tokenQueue := make(chan TokenQueueItem, len(l.Locations)*LastValidTokens)
 
@@ -81,7 +81,7 @@ func (l Locations) AccessTokenMap(idLength int, exp time.Duration, baseUrl strin
 
 	tokenIds := RandIDGenerator(idLength, len(l.Locations)*LastValidTokens)
 	for _, loc := range l.Locations {
-		GenerateAccessTokens(loc, tokenQueue, tokenIds, exp, baseUrl, port)
+		generateAccessToken(tokenQueue, tokenIds, <-tokenIds, time.Now().UTC(), exp, LastValidTokens, loc, baseUrl, port)
 	}
 
 	return validTokens
@@ -123,8 +123,8 @@ type AccessToken struct {
 	QR       []byte
 }
 
-func NewAccessToken(loc journal.Location, id string, iat time.Time, exp time.Duration, baseUrl string, port int) AccessToken {
-	token := AccessToken{ID: id, Location: loc, Exp: iat.Add(exp), Iat: iat, Valid: LastValidTokens}
+func newAccessToken(id string, iat time.Time, exp time.Duration, valid int, loc journal.Location, baseUrl string, port int) AccessToken {
+	token := AccessToken{ID: id, Exp: iat.Add(exp), Iat: iat, Valid: valid, Location: loc}
 
 	qr, err := qrcode.Encode(fmt.Sprintf("%v:%v?token=%v", baseUrl, port, token.ID), qrcode.Medium, 256)
 	if err != nil {
@@ -153,36 +153,28 @@ func (t *AccessToken) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (t *AccessToken) renew(timestamp time.Time, tokenQueue chan<- TokenQueueItem, idGenerator <-chan string, exp time.Duration, baseUrl string, port int) {
-	// If token first expired, create a new token
-	// This generates the token chain for a specific location
-	if t.Valid == LastValidTokens {
-		GenerateAccessTokens(t.Location, tokenQueue, idGenerator, exp, baseUrl, port)
-	}
-
-	// Update timestamps
-	tokenQueue <- TokenQueueItem{Update, NewAccessTken}
-	t.Iat = timestamp
-	t.Exp = timestamp.Add(exp)
-	t.Valid--
-}
-
-func GenerateAccessTokens(loc journal.Location, tokenQueue chan<- TokenQueueItem, idGenerator <-chan string, exp time.Duration, baseUrl string, port int) *AccessToken {
-	token := NewAccessToken(loc, <-idGenerator, time.Now(), exp, baseUrl, port)
+func generateAccessToken(tokenQueue chan<- TokenQueueItem, idGenerator <-chan string, id string, iat time.Time, exp time.Duration, valid int, loc journal.Location, baseUrl string, port int) *AccessToken {
+	token := newAccessToken(id, iat, exp, valid, loc, baseUrl, port)
 
 	go func() {
-		// Create new AccessToken
+		// Add AccessToken to map
 		tokenQueue <- TokenQueueItem{Add, &token}
 
-		for token.Valid > 0 {
-			// Wait for expire interval
-			timestamp := <-time.After(time.Until(token.Exp))
+		// Wait for token expire
+		timestamp := <-time.After(time.Until(token.Exp))
 
-			token.renew(timestamp, tokenQueue, idGenerator, exp, baseUrl, port)
+		// Generate new access token
+		if token.Valid == LastValidTokens {
+			generateAccessToken(tokenQueue, idGenerator, <-idGenerator, timestamp, exp, valid, loc, baseUrl, port)
 		}
 
 		// This AccessToken is invalid
 		tokenQueue <- TokenQueueItem{Invalidate, &token}
+
+		// Refresh this token
+		if token.Valid > 0 {
+			generateAccessToken(tokenQueue, idGenerator, id, timestamp, exp, valid-1, loc, baseUrl, port)
+		}
 	}()
 
 	return &token
