@@ -1,3 +1,10 @@
+// This source file is part of the attendance list project
+// as a part of the go lecture by H. Neemann.
+// For this reason you have no permission to use, modify or
+// share this code without the agreement of the authors.
+//
+// Matriculation numbers of the authors: 5703004, 5736465
+
 package token
 
 import (

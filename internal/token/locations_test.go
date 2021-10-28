@@ -1,3 +1,10 @@
+// This source file is part of the attendance list project
+// as a part of the go lecture by H. Neemann.
+// For this reason you have no permission to use, modify or
+// share this code without the agreement of the authors.
+//
+// Matriculation numbers of the authors: 5703004, 5736465
+
 package token
 
 import (
@@ -14,7 +21,7 @@ import (
 
 // Data
 
-var locations = Locations{[]journal.Location{"DHBW MOSBACH", "Alte Mältzerei"}}
+var locations = Locations{[]journal.Location{"DHBW Mosbach", "Alte Mältzerei"}}
 
 // Functions
 
@@ -37,14 +44,14 @@ func TestReadLocationFromXMLFailedRead(t *testing.T) {
 func TestNewAccessToken(t *testing.T) {
 	id := "aabbccddee"
 	iat := time.Now()
-	exp := iat.Add(1_000_000_000 * 10)
-	loc := &locations.Locations[0]
+	exp := iat.Add(time.Duration(10) * time.Second)
+	loc := locations.Locations[0]
 	qr, err := qrcode.Encode("localhost:8081?token=aabbccddee", qrcode.Medium, 256)
 	assert.NoError(t, err)
 
 	// Create an AccessToken which expires in 10 seconds
 	expected := AccessToken{id, exp, iat, 2, loc, qr}
-	actual := NewAccessToken(loc, id, iat, 10, "localhost", 8081)
+	actual := NewAccessToken(loc, id, iat, time.Duration(10)*time.Second, "localhost", 8081)
 
 	assert.Equal(t, expected, actual)
 }
@@ -52,12 +59,12 @@ func TestNewAccessToken(t *testing.T) {
 func TestQRCodeCreationFailed(t *testing.T) {
 	assert.Panics(t, func() {
 		id := strings.Repeat("a", 2311) // not more than 2332 bytes
-		NewAccessToken(&locations.Locations[0], string(id), time.Now(), 10, "localhost", 8081)
+		NewAccessToken(locations.Locations[0], string(id), time.Now(), time.Duration(10)*time.Second, "localhost", 8081)
 	})
 }
 
 func TestGenerateAccessTokens(t *testing.T) {
-	loc := &locations.Locations[0]
+	loc := locations.Locations[0]
 
 	// Setup channels
 	tokenQueue := make(chan TokenQueueItem, 1)
@@ -65,7 +72,7 @@ func TestGenerateAccessTokens(t *testing.T) {
 	idGenerator <- "aabbccddee"
 	idGenerator <- "ffgghhiijj"
 
-	expected := GenerateAccessTokens(loc, tokenQueue, idGenerator, 1, "localhost", 8081)
+	expected := GenerateAccessTokens(loc, tokenQueue, idGenerator, time.Duration(1)*time.Second, "localhost", 8081)
 	actual := <-tokenQueue
 
 	// Token should be added to queue
@@ -74,7 +81,7 @@ func TestGenerateAccessTokens(t *testing.T) {
 }
 
 func TestGenerateAccessTokenInvalidate(t *testing.T) {
-	loc := &locations.Locations[0]
+	loc := locations.Locations[0]
 
 	// Setup channels
 	tokenQueue := make(chan TokenQueueItem, 1)
@@ -83,7 +90,7 @@ func TestGenerateAccessTokenInvalidate(t *testing.T) {
 	idGenerator <- "ffgghhiijj"
 	idGenerator <- "kkllmmnnoo"
 
-	token := GenerateAccessTokens(loc, tokenQueue, idGenerator, 1, "localhost", 8081)
+	token := GenerateAccessTokens(loc, tokenQueue, idGenerator, time.Duration(1)*time.Second, "localhost", 8081)
 
 	// After 4 Entries the token must be invalidate
 	// 1.) Add the token
@@ -101,44 +108,44 @@ func TestGenerateAccessTokenInvalidate(t *testing.T) {
 	}
 
 	// Token is Invalid
-	assert.Equal(t, 0, token.valid)
+	assert.Equal(t, 0, token.Valid)
 }
 
 func TestRenewToken(t *testing.T) {
 	id := "aabbccddee"
 	iat := time.Now()
-	loc := &locations.Locations[0]
+	loc := locations.Locations[0]
 
 	// Setup channels
 	tokenQueue := make(chan TokenQueueItem, 1)
 	idGenerator := make(chan string, 1)
 	idGenerator <- "ffgghhiijj"
 
-	token := NewAccessToken(loc, id, iat, 10, "localhost", 8081)
+	token := NewAccessToken(loc, id, iat, time.Duration(10)*time.Second, "localhost", 8081)
 
 	timestamp := time.Now()
-	assert.Equal(t, 2, token.valid)
+	assert.Equal(t, 2, token.Valid)
 
 	// Renew token
-	token.renew(timestamp, tokenQueue, idGenerator, 10, "localhost", 8081)
+	token.renew(timestamp, tokenQueue, idGenerator, time.Duration(10)*time.Second, "localhost", 8081)
 
 	// Token should have new iat and exp
-	assert.Equal(t, timestamp, token.iat)
-	assert.Equal(t, timestamp.Add(10_000_000_000), token.exp)
+	assert.Equal(t, timestamp, token.Iat)
+	assert.Equal(t, timestamp.Add(time.Duration(10)*time.Second), token.Exp)
 	// Valid is decreased by 1
-	assert.Equal(t, 1, token.valid)
+	assert.Equal(t, 1, token.Valid)
 	// Token's Id hasn't changed
-	assert.Equal(t, "aabbccddee", token.id)
+	assert.Equal(t, "aabbccddee", token.ID)
 	// Token's location hasn't changed
-	assert.Equal(t, loc, token.location)
+	assert.Equal(t, loc, token.Location)
 
 	// Get current action from queue
 	// New token should be added to queue
 	item := <-tokenQueue
 
 	assert.Equal(t, Add, item.action)
-	assert.Equal(t, 2, item.token.valid)
-	assert.Equal(t, "ffgghhiijj", item.token.id)
-	assert.Equal(t, int64(10), item.token.exp.Unix()-item.token.iat.Unix())
-	assert.Equal(t, loc, item.token.location)
+	assert.Equal(t, 2, item.token.Valid)
+	assert.Equal(t, "ffgghhiijj", item.token.ID)
+	assert.Equal(t, time.Duration(10)*time.Second, item.token.Exp.Sub(item.token.Iat))
+	assert.Equal(t, loc, item.token.Location)
 }

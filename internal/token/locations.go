@@ -1,8 +1,17 @@
+// This source file is part of the attendance list project
+// as a part of the go lecture by H. Neemann.
+// For this reason you have no permission to use, modify or
+// share this code without the agreement of the authors.
+//
+// Matriculation numbers of the authors: 5703004, 5736465
+
 package token
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"sync"
 
 	"io/ioutil"
 	"os"
@@ -12,9 +21,6 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-// Represents a second as nanosecond
-const SecondInNanoseconds = 1_000_000_000
-
 // Sets how many tokens for a location can be used to log in.
 const LastValidTokens = 2
 
@@ -22,10 +28,40 @@ type TokenAction int
 
 const (
 	Add TokenAction = iota
+	Update
 	Invalidate
 )
 
-type ValidTokens map[string]*AccessToken
+type ValidTokens struct {
+	sync.Map
+}
+
+func (m *ValidTokens) GetAccessTokenForLocation(loc journal.Location) (token *AccessToken, ok bool) {
+	m.Range(func(key interface{}, value interface{}) bool {
+		val := value.(*AccessToken)
+		if val.Location == loc && val.Valid == LastValidTokens {
+			token = val
+			ok = true
+			return false
+		}
+
+		ok = false
+		return true
+	})
+
+	return token, ok
+}
+
+func (m *ValidTokens) run(tokenQueue <-chan TokenQueueItem) {
+	for item := range tokenQueue {
+		switch item.action {
+		case Add:
+			m.Store(item.token.ID, item.token)
+		case Invalidate:
+			m.Delete(item.token.ID)
+		}
+	}
+}
 
 type TokenQueueItem struct {
 	action TokenAction
@@ -37,29 +73,18 @@ type Locations struct {
 	Locations []journal.Location `xml:"Location"`
 }
 
-func (l Locations) AccessTokenMap(idLength int, exp int64, baseUrl string, port int) (*ValidTokens, chan TokenQueueItem) {
-	validTokens := make(ValidTokens)
+func (l Locations) AccessTokenMap(idLength int, exp time.Duration, baseUrl string, port int) *ValidTokens {
+	validTokens := new(ValidTokens)
 	tokenQueue := make(chan TokenQueueItem, len(l.Locations)*LastValidTokens)
 
 	go validTokens.run(tokenQueue)
 
 	tokenIds := RandIDGenerator(idLength, len(l.Locations)*LastValidTokens)
 	for _, loc := range l.Locations {
-		GenerateAccessTokens(&loc, tokenQueue, tokenIds, exp, baseUrl, port)
+		GenerateAccessTokens(loc, tokenQueue, tokenIds, exp, baseUrl, port)
 	}
 
-	return &validTokens, tokenQueue
-}
-
-func (m *ValidTokens) run(tokenQueue <-chan TokenQueueItem) {
-	for item := range tokenQueue {
-		switch item.action {
-		case Add:
-			(*m)[item.token.id] = item.token
-		case Invalidate:
-			delete(*m, item.token.id)
-		}
-	}
+	return validTokens
 }
 
 // ReadLocationsFormXML reads Locations from a XML file to the Locations struct.
@@ -90,36 +115,68 @@ func ReadLocationsFromXML(path string) (Locations, error) {
 
 // An AccessToken represents a token for a location.
 type AccessToken struct {
-	id       string
-	exp      time.Time
-	iat      time.Time
-	valid    int
-	location *journal.Location
-	qr       []byte
+	ID       string
+	Exp      time.Time
+	Iat      time.Time
+	Valid    int
+	Location journal.Location
+	QR       []byte
 }
 
-func NewAccessToken(loc *journal.Location, id string, iat time.Time, exp int64, baseUrl string, port int) AccessToken {
-	token := AccessToken{id: id, location: loc, exp: iat.Add(time.Duration(exp * SecondInNanoseconds)), iat: iat, valid: LastValidTokens}
+func NewAccessToken(loc journal.Location, id string, iat time.Time, exp time.Duration, baseUrl string, port int) AccessToken {
+	token := AccessToken{ID: id, Location: loc, Exp: iat.Add(exp), Iat: iat, Valid: LastValidTokens}
 
-	qr, err := qrcode.Encode(fmt.Sprintf("%v:%v?token=%v", baseUrl, port, token.id), qrcode.Medium, 256)
+	qr, err := qrcode.Encode(fmt.Sprintf("%v:%v?token=%v", baseUrl, port, token.ID), qrcode.Medium, 256)
 	if err != nil {
 		panic(fmt.Errorf("cannot create qr code: %w", err))
 	}
 
-	token.qr = qr
+	token.QR = qr
 	return token
 }
 
-func GenerateAccessTokens(loc *journal.Location, tokenQueue chan<- TokenQueueItem, idGenerator <-chan string, exp int64, baseUrl string, port int) *AccessToken {
+func (t *AccessToken) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID       string           `json:"id"`
+		Exp      int64            `json:"exp"`
+		Iat      int64            `json:"iat"`
+		Valid    int              `json:"valid"`
+		Location journal.Location `json:"loc"`
+		QR       []byte           `json:"qr"`
+	}{
+		ID:       t.ID,
+		Exp:      t.Exp.Unix(),
+		Iat:      t.Iat.Unix(),
+		Valid:    t.Valid,
+		Location: t.Location,
+		QR:       t.QR,
+	})
+}
+
+func (t *AccessToken) renew(timestamp time.Time, tokenQueue chan<- TokenQueueItem, idGenerator <-chan string, exp time.Duration, baseUrl string, port int) {
+	// If token first expired, create a new token
+	// This generates the token chain for a specific location
+	if t.Valid == LastValidTokens {
+		GenerateAccessTokens(t.Location, tokenQueue, idGenerator, exp, baseUrl, port)
+	}
+
+	// Update timestamps
+	tokenQueue <- TokenQueueItem{Update, NewAccessTken}
+	t.Iat = timestamp
+	t.Exp = timestamp.Add(exp)
+	t.Valid--
+}
+
+func GenerateAccessTokens(loc journal.Location, tokenQueue chan<- TokenQueueItem, idGenerator <-chan string, exp time.Duration, baseUrl string, port int) *AccessToken {
 	token := NewAccessToken(loc, <-idGenerator, time.Now(), exp, baseUrl, port)
 
 	go func() {
 		// Create new AccessToken
 		tokenQueue <- TokenQueueItem{Add, &token}
 
-		for token.valid > 0 {
+		for token.Valid > 0 {
 			// Wait for expire interval
-			timestamp := <-time.After(time.Until(token.exp))
+			timestamp := <-time.After(time.Until(token.Exp))
 
 			token.renew(timestamp, tokenQueue, idGenerator, exp, baseUrl, port)
 		}
@@ -129,17 +186,4 @@ func GenerateAccessTokens(loc *journal.Location, tokenQueue chan<- TokenQueueIte
 	}()
 
 	return &token
-}
-
-func (t *AccessToken) renew(timestamp time.Time, tokenQueue chan<- TokenQueueItem, idGenerator <-chan string, exp int64, baseUrl string, port int) {
-	// If token first expired, create a new token
-	// This generates the token chain for a specific location
-	if t.valid == LastValidTokens {
-		GenerateAccessTokens(t.location, tokenQueue, idGenerator, exp, baseUrl, port)
-	}
-
-	// Update timestamps
-	t.iat = timestamp
-	t.exp = timestamp.Add(time.Duration(exp * SecondInNanoseconds))
-	t.valid--
 }
