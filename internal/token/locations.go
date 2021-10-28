@@ -25,19 +25,32 @@ import (
 // A value of 0 means that a token is invalid after it expires once.
 const LastValidTokens = 1
 
+// A TokenAction represents what can do with a token internally.
 type TokenAction int
 
 const (
+	// Add a token to a map
 	Add TokenAction = iota
+	// Invalidate a token
 	Invalidate
 )
 
+// ValidTokens is a map which holds all valid tokens.
+// The sync.Map is embedded in this type to allow concurrent reads and writes.
 type ValidTokens struct {
 	sync.Map
 }
 
+// GetAccessTokenForLocation searches in ValidTokens for the newest AccessToken for
+// the specific location loc.
+// It is guaranteed that if a token for the location exists this function returns
+// always a token with the maximum valid value. However, this token can be already
+// expired if the read happens before a refreshed token is stored in the map.
+//
+// This function returns a pointer to the newest AccessToken and an ok value which
+// is true if a token was found.
 func (m *ValidTokens) GetAccessTokenForLocation(loc journal.Location) (token *AccessToken, ok bool) {
-	m.Range(func(key interface{}, value interface{}) bool {
+	m.Range(func(key, value interface{}) bool {
 		val := value.(*AccessToken)
 		if val.Location == loc && val.Valid == LastValidTokens {
 			token = val
@@ -52,32 +65,46 @@ func (m *ValidTokens) GetAccessTokenForLocation(loc journal.Location) (token *Ac
 	return token, ok
 }
 
+// run listens to the tokenQueue channel and processes the action
+// for a token defined in the TokenQueueItem.
 func (m *ValidTokens) run(tokenQueue <-chan TokenQueueItem) {
-	for item := range tokenQueue {
-		switch item.action {
-		case Add:
-			m.Store(item.token.ID, item.token)
-		case Invalidate:
-			m.Delete(item.token.ID)
+	go func() {
+		for item := range tokenQueue {
+			switch item.action {
+			case Add:
+				m.Store(item.token.ID, item.token)
+			case Invalidate:
+				m.Delete(item.token.ID)
+			}
 		}
-	}
+	}()
 }
 
+// A TokenQueueItem represents an item which can be consumed
+// by the ValidTokens map.
+// The action describes what to do with the Token hold by
+// a AccessToken pointer.
 type TokenQueueItem struct {
 	action TokenAction
 	token  *AccessToken
 }
 
-// Locations are a collection of places that people can access.
+// Locations is a collection of places that people can access.
 type Locations struct {
 	Locations []journal.Location `xml:"Location"`
 }
 
+// GenerateAccessTokens generates AccessTokens for each location in the Locations
+// struct. It returns a pointer to a ValidTokens map which holds all valid tokens
+// If the function was executed once tokens are generated automatically with a
+// specific idLength, expire duration, a baseUrl and a port.
+//
+// ValidTokens is updated in background.
 func (l Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUrl string, port int) *ValidTokens {
 	validTokens := new(ValidTokens)
 	tokenQueue := make(chan TokenQueueItem, len(l.Locations)*LastValidTokens)
 
-	go validTokens.run(tokenQueue)
+	validTokens.run(tokenQueue)
 
 	tokenIds := RandIDGenerator(idLength, len(l.Locations)*LastValidTokens)
 	for _, loc := range l.Locations {
@@ -114,6 +141,13 @@ func ReadLocationsFromXML(path string) (Locations, error) {
 }
 
 // An AccessToken represents a token for a location.
+// The ID is a temporary unique identifier for this token,
+// Exp is the timestamp where this token expires,
+// Iat is the 'issued at' time where to token was created,
+// Valid indicates wheter an AccessToken refreshed itself. If Valid equals 0 the
+// token will not refresh and invalidates after the expire time.
+// Location is the Location which is associated with this token
+// and QR is a byte slice which defines a QR-Code for this AccessToken.
 type AccessToken struct {
 	ID       string
 	Exp      time.Time
@@ -123,6 +157,7 @@ type AccessToken struct {
 	QR       []byte
 }
 
+// newAccessToken returns a new AccessToken with the given attributes.
 func newAccessToken(id string, iat time.Time, exp time.Duration, valid int, loc journal.Location, baseUrl string, port int) AccessToken {
 	token := AccessToken{ID: id, Exp: iat.Add(exp), Iat: iat, Valid: valid, Location: loc}
 
@@ -135,6 +170,7 @@ func newAccessToken(id string, iat time.Time, exp time.Duration, valid int, loc 
 	return token
 }
 
+// MarshalJSON returns the JSON representation of an AccessToken.
 func (t *AccessToken) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		ID       string           `json:"id"`
@@ -153,13 +189,22 @@ func (t *AccessToken) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// generateAccessToken generates and manages the AccessToken for a specific Location loc.
+// It pushes a store request in the tokenQueue and start a goroutine which handles the
+// lifetime of a token.
+// This function is recursive and refreshes a invalid token automatically or generates
+// a new token for the specific location if necessary.
+//
+// It is recommended to use this function instead of the newAccessToken function if new
+// access tokens should generated automatically in an concurrent way.
 func generateAccessToken(tokenQueue chan<- TokenQueueItem, idGenerator <-chan string, id string, iat time.Time, exp time.Duration, valid int, loc journal.Location, baseUrl string, port int) *AccessToken {
 	token := newAccessToken(id, iat, exp, valid, loc, baseUrl, port)
 
-	go func() {
-		// Add AccessToken to map
-		tokenQueue <- TokenQueueItem{Add, &token}
+	// Add AccessToken to map
+	// Ensure that this happens before invalidation
+	tokenQueue <- TokenQueueItem{Add, &token}
 
+	go func() {
 		// Wait for token expire
 		timestamp := <-time.After(time.Until(token.Exp))
 

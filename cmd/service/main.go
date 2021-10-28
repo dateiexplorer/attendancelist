@@ -2,16 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"time"
 
 	"github.com/dateiexplorer/attendancelist/internal/journal"
 	"github.com/dateiexplorer/attendancelist/internal/token"
 )
-
-var validTokens *token.ValidTokens
 
 // func locationViewHandler(w http.ResponseWriter, r *http.Request) {
 // 	/*title := r.URL.Path[len("/view/"):]
@@ -20,7 +20,7 @@ var validTokens *token.ValidTokens
 // 	t.Execute(w, p)*/
 // }
 
-func accessTokenDispenser(w http.ResponseWriter, r *http.Request) {
+func accessTokenDispenser(w http.ResponseWriter, r *http.Request, validTokens *token.ValidTokens) {
 	query := r.URL.Query()
 	loc := journal.Location(query.Get("loc"))
 	log.Println(loc)
@@ -43,18 +43,43 @@ func accessTokenDispenser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func serveLocations(w http.ResponseWriter, r *http.Request, loc token.Locations) {
+	resp, err := json.Marshal(loc.Locations)
+	if err != nil {
+		fmt.Errorf("cant format AccessToken to json: %w", err)
+	} else {
+		w.Write(resp)
+	}
+}
+
 func main() {
 	// Load locations from XML file
-	locations, err := token.ReadLocationsFromXML(path.Join("locations.xml"))
+	locations, err := token.ReadLocationsFromXML("locations.xml")
 	if err != nil {
-		panic("locations not loaded")
+		panic(fmt.Errorf("locations not loaded: %w", err))
 	}
 
 	// Initialize token map
 	// Tokens update automatically
-	validTokens = locations.GenerateAccessTokens(10, time.Duration(5)*time.Second, "localhost", 8081)
+	validTokens := locations.GenerateAccessTokens(10, time.Duration(5)*time.Second, "localhost", 8081)
 
-	http.HandleFunc("/newAccessTk", accessTokenDispenser)
+	wd, _ := os.Getwd()
+
+	fs := http.FileServer(http.Dir(path.Join(wd, "web", "locSrc")))
+	http.Handle("/", fs)
+
+	http.HandleFunc("/loc", func(w http.ResponseWriter, r *http.Request) {
+		serveLocations(w, r, locations)
+	})
+
+	http.HandleFunc("/newAccessTk", func(w http.ResponseWriter, r *http.Request) {
+		accessTokenDispenser(w, r, validTokens)
+	})
+
+	log.Fatalln(http.ListenAndServeTLS(":4443",
+		"cert.pem", "key.pem", nil))
+
 	// log.Fatalln(http.ListenAndServeTLS(":4443", path.Join("cert.pem"), path.Join("key.pem"), nil))
-	log.Fatalln(http.ListenAndServe(":4443", nil))
+	// log.Fatalln(http.ListenAndServe(":4443", nil))
+
 }
