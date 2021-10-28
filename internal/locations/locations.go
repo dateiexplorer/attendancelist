@@ -80,7 +80,7 @@ func NewAccessToken(loc Location, newId string, expireTime time.Time) AccessToke
 // AccessTokenValidator triggers the generation of AccessTokens(GenerateNewAT) for the ValidTokens Map
 // and handels the validation of the expiretime
 // vl new ids übergeben
-func AccessTokenValidator(tokens *ValidTokens, path string, sec time.Duration) {
+func AccessTokenValidator(tokens *ValidTokens, path string, sec time.Duration) Locations{
 	locs := LocGenerator(path)
 	loc ,_ :=time.LoadLocation("Europe/Berlin")
 	expireTime := make(chan time.Time, 1000)
@@ -94,6 +94,7 @@ func AccessTokenValidator(tokens *ValidTokens, path string, sec time.Duration) {
 			go GenerateNewAT(now, locs, newIds, expireTime, sec, tokens)
 	}
 	}}()
+	return locs
 }
 
 // GenerateNewAT generates new AccessToken for the ValidTokens Map given by the Locations

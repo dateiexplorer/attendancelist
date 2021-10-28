@@ -6,6 +6,7 @@
 		html{
 			height: 100%
 		}
+
 		body {
 			text-align: center;
 			display: flex;
@@ -16,9 +17,11 @@
   			margin: 0;
   			font-family: 'Generis Sans W01 Medium',sans-serif;
 		}
+
 		.headerImg {
 			background-color: white;
 		}
+
 		#destination{
 			
 			color: white; 
@@ -26,6 +29,9 @@
 			font-size: 3em;
 		}
 		
+		#currentQR{
+			display: none;
+		} 
 
 		footer {
 			background-color: #2b2b2b;
@@ -37,16 +43,20 @@
 <body>
 	<header>
 		<div class="headerImg">
-	<img src="img\dhbw_mosbach_logo.png">
+	<img src="/img/dhbw_mosbach_logo.png">
 	</div>
 	<br><br>
-	<div id="destination"></div><br>
+	<div id="destination">Wählen Sie bitte den Standort:</div>
 	</header>
-	<div>
-<img src="" id="currentQR" alt="QR-Code für Zugang zu einem DHBW-Gebäude"></div>
-<script type="text/javascript" src="js\ajax.js"></script>
+<div id="content">
+		<span id="startSelect"><select id="locSelector"></select>
+		<button type="button" onclick="start();">Wählen</button></span>
+		<img src="" id="currentQR" alt="QR-Code für Zugang zu einem DHBW-Gebäude"></div>
+</div>
 <footer>
 Bei Problemen wenden Sie sich bitte an die IT-Abteilung der DHBW Mosbach!
 </footer>
+<script type="text/javascript" src="js\ajax.js"></script>
+<script type="text/javascript">getLocations()</script>
 </body>
 </html>
