@@ -24,11 +24,11 @@ function getQRCode() {
 			{
 				resp = JSON.parse(req.responseText);
 				console.log(resp);
-				imgPlace.src = "data:image/png;base64," + resp.Qr;
-				let exp = new Date(resp.Expires);
+				imgPlace.src = "data:image/png;base64," + resp.qr;
+				let exp = new Date(resp.exp);
 				let dif = (exp - new Date().getTime());
-				dest.innerHTML = "Zugnangs-QRCode f" + unescape("%FC") +"r " + resp.Location;
-				setTimeout(getQRCode, dif);
+				dest.innerHTML = "Zugangs-QRCode f" + unescape("%FC") +"r " + resp.loc;
+				setTimeout(getQRCode, 5000);
 
 			}
 		}
