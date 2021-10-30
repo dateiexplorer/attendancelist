@@ -141,7 +141,7 @@ func doAction(action Action, journalDir string, journalDate timeutil.Date) error
 		locs := j.GetVisitedLocationsForPerson(persons[0])
 		fmt.Println(locs)
 	case GetAttendanceListForLocation:
-		list := j.GetAttendanceListForLocation(journal.NewLocation(location))
+		list := j.GetAttendanceListForLocation(journal.Location(location))
 
 		if len(filePath) == 0 {
 			fmt.Println(list)

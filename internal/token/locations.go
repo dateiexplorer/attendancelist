@@ -114,6 +114,16 @@ func (l Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUrl
 	return validTokens
 }
 
+func (l Locations) Contains(loc journal.Location) bool {
+	for _, location := range l.Locations {
+		if loc == location {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ReadLocationsFormXML reads Locations from a XML file to the Locations struct.
 // The path parameter defines the path to the XML file in the filesystem.
 //

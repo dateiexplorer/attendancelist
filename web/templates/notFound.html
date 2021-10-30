@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>DHBW Attendance List Application</title>
+	<link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+
+<body>
+	<div class="content">
+		<img id="logo" src="/assets/images/dhbw_mosbach_logo.png">
+
+		<p>The requested path doesn't exists. Maybe the location doesn't exists?</p>
+		<p>Please select a location for which you want to show the access code from the list below:</p>
+		<ul>
+		{{range .Locations}}
+			<li><a href="/{{.}}">{{.}}<a></li>
+		{{end}}
+		</ul>
+	</div>
+</body>
+
+</html>
