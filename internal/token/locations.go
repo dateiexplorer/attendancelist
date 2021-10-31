@@ -100,7 +100,7 @@ type Locations struct {
 // specific idLength, expire duration, a baseUrl and a port.
 //
 // ValidTokens is updated in background.
-func (l Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUrl string, port int) *ValidTokens {
+func (l *Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUrl string, port int) *ValidTokens {
 	validTokens := new(ValidTokens)
 	tokenQueue := make(chan TokenQueueItem, len(l.Locations)*LastValidTokens)
 
@@ -114,7 +114,7 @@ func (l Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUrl
 	return validTokens
 }
 
-func (l Locations) Contains(loc journal.Location) bool {
+func (l *Locations) Contains(loc journal.Location) bool {
 	for _, location := range l.Locations {
 		if loc == location {
 			return true
@@ -122,6 +122,24 @@ func (l Locations) Contains(loc journal.Location) bool {
 	}
 
 	return false
+}
+
+func (l *Locations) UnmarshalJSON(data []byte) error {
+	var v []interface{}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return fmt.Errorf("error while decoding: %w", err)
+	}
+
+	for _, item := range v {
+		location, ok := item.(string)
+		if !ok {
+			return fmt.Errorf("cannot convert data to string: %v", item)
+		}
+
+		l.Locations = append(l.Locations, journal.Location(location))
+	}
+
+	return nil
 }
 
 // ReadLocationsFormXML reads Locations from a XML file to the Locations struct.
