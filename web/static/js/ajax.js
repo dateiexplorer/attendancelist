@@ -23,7 +23,7 @@ const sleep = (milliseconds) => {
 async function getQRCode() {
 	"use strict";
 
-	let url = `https://${window.location.host}/api/tokens/access?location=${loc.innerHTML}`;
+	let url = `https://${window.location.host}/api/tokens?location=${loc.innerHTML}`;
 
 	let error = 0;
 	while (error < 1) {

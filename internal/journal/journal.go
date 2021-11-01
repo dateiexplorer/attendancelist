@@ -86,7 +86,7 @@ func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 		location := Location(values[3])
 		person := Person{values[4], values[5], Address{values[6], values[7], values[8], values[9]}}
 
-		entry := JournalEntry{timestamp, sessionIdentifier(id), Event(action), location, person}
+		entry := JournalEntry{timestamp, SessionIdentifier(id), Event(action), location, person}
 		entries = append(entries, entry)
 	}
 
@@ -155,7 +155,7 @@ func (j Journal) GetVisitedLocationsForPerson(p Person) []Location {
 // two AttendanceEntries with the same Login timestamp are always appears in the
 // same order.
 func (j Journal) GetAttendanceListForLocation(l Location) AttendanceList {
-	m := map[sessionIdentifier]AttendanceEntry{}
+	m := map[SessionIdentifier]AttendanceEntry{}
 	for _, e := range j.entries {
 		if e.location == l {
 			switch e.event {
@@ -191,12 +191,12 @@ func (j Journal) Entries() []JournalEntry {
 // A sessionIdentifier identifies which JournalEntries match together.
 // This is important since the journal file documents the login and logout for a
 // user in two separate JournalEntries.
-type sessionIdentifier string
+type SessionIdentifier string
 
 // A JournalEntry represents one row in the Journal.
 type JournalEntry struct {
 	timestamp timeutil.Timestamp
-	session   sessionIdentifier
+	session   SessionIdentifier
 	event     Event
 	location  Location
 	person    Person

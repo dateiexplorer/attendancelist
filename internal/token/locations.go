@@ -25,6 +25,11 @@ import (
 // A value of 0 means that a token is invalid after it expires once.
 const LastValidTokens = 1
 
+type ValidTokenResponse struct {
+	Valid bool         `json:"valid"`
+	Token *AccessToken `json:"token"`
+}
+
 // A TokenAction represents what can do with a token internally.
 type TokenAction int
 
@@ -114,6 +119,8 @@ func (l *Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUr
 	return validTokens
 }
 
+// Contains returns true if a provided Location loc is in the Locations data
+// structure, otherwise false.
 func (l *Locations) Contains(loc journal.Location) bool {
 	for _, location := range l.Locations {
 		if loc == location {
@@ -124,6 +131,9 @@ func (l *Locations) Contains(loc journal.Location) bool {
 	return false
 }
 
+// UnmarshalJSON takes the JSON representation of a Locations collection and parses
+// it to the collection.
+// If the data cannot be parsed into the data structure this function returns and error.
 func (l *Locations) UnmarshalJSON(data []byte) error {
 	var v []interface{}
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -215,6 +225,31 @@ func (t *AccessToken) MarshalJSON() ([]byte, error) {
 		Location: t.Location,
 		QR:       t.QR,
 	})
+}
+
+func (t *AccessToken) UnmarshalJSON(data []byte) error {
+	tmp := struct {
+		ID       string           `json:"id"`
+		Exp      int64            `json:"exp"`
+		Iat      int64            `json:"iat"`
+		Valid    int              `json:"valid"`
+		Location journal.Location `json:"loc"`
+		QR       []byte           `json:"qr"`
+	}{}
+
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+
+	t.ID = tmp.ID
+	t.Exp = time.Unix(tmp.Exp, 0)
+	t.Iat = time.Unix(tmp.Iat, 0)
+	t.Valid = tmp.Valid
+	t.Location = tmp.Location
+	t.QR = tmp.QR
+
+	return nil
 }
 
 // generateAccessToken generates and manages the AccessToken for a specific Location loc.

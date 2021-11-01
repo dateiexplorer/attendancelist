@@ -9,6 +9,8 @@ package token
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 )
 
@@ -38,4 +40,32 @@ func RandIDGenerator(idLength, buffer int) <-chan string {
 	}()
 
 	return ids
+}
+
+// Hash hashes the values of a type v with a private key privkey with the sha256
+// algorithm and returns the hash in a hexadecimal representation as a string of
+// 64 chars.
+//
+// This method uses the json.Marshal function to representate any data as a byte
+// slice, which is necessary for the alogithm.
+// Same input produces same hashes.
+//
+// If some values of a type can't be marshaled by the json.Marshal function this
+// functions returns an error and an empty string.
+func Hash(v interface{}, privkey string) (string, error) {
+	hashData := struct {
+		V       interface{} `json:"value"`
+		Privkey string      `json:"key"`
+	}{
+		V:       v,
+		Privkey: privkey,
+	}
+
+	bytes, err := json.Marshal(hashData)
+	if err != nil {
+		return "", fmt.Errorf("cannot hash type %T: %w", v, err)
+	}
+
+	hash := sha256.Sum256(bytes)
+	return fmt.Sprintf("%x", hash), nil
 }

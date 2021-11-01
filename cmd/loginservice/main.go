@@ -20,7 +20,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/dateiexplorer/attendancelist/internal/journal"
 	"github.com/dateiexplorer/attendancelist/internal/token"
 )
 
@@ -41,7 +40,7 @@ func main() {
 	var port, backendPort int
 	var url, backendURL string
 
-	flag.IntVar(&port, "port", 8080, "Port this service should running on")
+	flag.IntVar(&port, "port", 8081, "Port this service should running on")
 	flag.IntVar(&backendPort, "backend-port", 4443, "Port the backend service should running on")
 	flag.StringVar(&url, "url", "localhost", "URL under which this service is available without the https:// prefix")
 	flag.StringVar(&backendURL, "backend-url", "localhost", "URL under which the backend service is available without the https:// prefix")
@@ -54,14 +53,18 @@ func main() {
 		panic(fmt.Errorf("cannot get working directory: %w", err))
 	}
 
-	getLocationURL := fmt.Sprintf("https://%v:%v/locations", backendURL, backendPort)
-
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(path.Join(wd, "web", "static")))))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		loc := journal.Location(strings.ReplaceAll(r.URL.Path, "/", ""))
+		query := r.URL.Query()
+		if !query.Has("token") {
+			return
+		}
 
-		res, err := http.Get(getLocationURL)
+		tokenID := query.Get("token")
+
+		// Check if token is valid
+		res, err := http.Get(fmt.Sprintf("https://%v:%v/tokens/valid?id=%v", backendURL, backendPort, tokenID))
 		if err != nil {
 			return
 		}
@@ -71,23 +74,30 @@ func main() {
 			return
 		}
 
-		var locations token.Locations
-		err = json.Unmarshal(body, &locations)
+		var validTokenRes token.ValidTokenResponse
+		err = json.Unmarshal(body, &validTokenRes)
+
 		if err != nil {
 			return
 		}
 
-		// Return page for specific location
-		if ok := locations.Contains(loc); ok {
-			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "qrservice", "location.html")))
-
-			t.Execute(w, loc)
+		if !validTokenRes.Valid {
+			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "forbidden.html")))
+			t.Execute(w, nil)
 			return
 		}
 
-		// Path is no location, return 404 not found page
-		t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "qrservice", "notFound.html")))
-		t.Execute(w, locations)
+		// End check if token is valid
+
+		cookie, err := r.Cookie("test")
+		if err != nil {
+			// Cookie not found
+		} else {
+			fmt.Println(cookie.Value)
+		}
+
+		t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
+		t.Execute(w, *validTokenRes.Token)
 	})
 
 	// Proxy for backend to avoid cors issues.
@@ -108,7 +118,7 @@ func main() {
 		w.Write(body)
 	})
 
-	fmt.Fprintf(log.Writer(), "Start qr service on %v:%v with params backend-url=%v, backend-port:%v\n", url, port, backendURL, backendPort)
+	fmt.Fprintf(log.Writer(), "Start login service on %v:%v with params backend-url=%v, backend-port:%v\n", url, port, backendURL, backendPort)
 	log.Fatalln(http.ListenAndServeTLS(fmt.Sprintf("%v:%v", url, port),
 		path.Join(wd, "certs", "cert.pem"), path.Join(wd, "certs", "key.pem"), nil))
 }

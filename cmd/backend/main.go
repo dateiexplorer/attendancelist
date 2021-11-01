@@ -1,3 +1,10 @@
+// This source file is part of the attendance list project
+// as a part of the go lecture by H. Neemann.
+// For this reason you have no permission to use, modify or
+// share this code without the agreement of the authors.
+//
+// Matriculation numbers of the authors: 5703004, 5736465
+
 package main
 
 import (
@@ -21,18 +28,33 @@ func getAccessToken(w http.ResponseWriter, r *http.Request, validTokens *token.V
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
-	token, ok := validTokens.GetAccessTokenForLocation(location)
-	if !ok {
-		err := fmt.Errorf("no valid token found for this location")
-		w.Write([]byte(fmt.Sprintf("{\"err\":\"%v\"}", err)))
+	if token, ok := validTokens.GetAccessTokenForLocation(location); ok {
+		res, _ := json.Marshal(token)
+		w.Write(res)
 		return
 	}
 
-	res, err := json.Marshal(token)
-	if err != nil {
-		return
+	err := fmt.Errorf("no valid token found for this location")
+	w.Write([]byte(fmt.Sprintf("{\"err\":\"%v\"}", err)))
+}
+
+func isValidToken(w http.ResponseWriter, r *http.Request, validTokens *token.ValidTokens) {
+	query := r.URL.Query()
+	id := query.Get("id")
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	var data token.ValidTokenResponse
+
+	if value, ok := validTokens.Load(id); ok {
+		t, _ := value.(*token.AccessToken)
+		data = token.ValidTokenResponse{Valid: true, Token: t}
+	} else {
+		data = token.ValidTokenResponse{Valid: false, Token: nil}
 	}
 
+	res, _ := json.Marshal(data)
 	w.Write(res)
 }
 
@@ -81,8 +103,12 @@ func main() {
 	// Tokens update automatically
 	validTokens := locations.GenerateAccessTokens(10, time.Duration(expireTime)*time.Second, loginURL, loginPort)
 
-	http.HandleFunc("/tokens/access", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/tokens", func(w http.ResponseWriter, r *http.Request) {
 		getAccessToken(w, r, validTokens)
+	})
+
+	http.HandleFunc("/tokens/valid", func(w http.ResponseWriter, r *http.Request) {
+		isValidToken(w, r, validTokens)
 	})
 
 	http.HandleFunc("/locations", func(w http.ResponseWriter, r *http.Request) {

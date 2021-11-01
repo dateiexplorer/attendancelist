@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>DHBW Attendance List Application</title>
+	<link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+
+<body>
+	<div class="content">
+		<img id="logo" src="/assets/images/dhbw_mosbach_logo.png">
+
+        <p>Please fill in the form below to perform a login for the following location:</p>
+		<p id="loc">{{.Location}}</p>
+        <form>
+            <div class="row">
+                <div class="col-50">
+                    <input type="text" placeholder="First Name" name="firstName" required>
+                </div>
+                <div class="col-50">
+                    <input type="text" placeholder="Last Name" name="lastName" required>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-75">
+                    <input type="text" placeholder="Street" name="street" required>
+                </div>
+                <div class="col-25">
+                    <input type="text" placeholder="Nr." name="number" required>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-25">
+                    <input type="text" placeholder="Zip Code" name="zipCode" required>
+                </div>
+                <div class="col-75">
+                    <input type="text" placeholder="City" name="city" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-100">
+                    <input type="submit" value="Login">
+                </div>
+            </div>
+        </form>
+
+        <p><a href="">Why I get the login formular, but I wanted to logout?</a></p>
+        <p>If there are any issues contact the EDV department of the DHBW Mosbach.</p>
+	</div>
+</body>
+
+</html>

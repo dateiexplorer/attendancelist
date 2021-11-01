@@ -43,13 +43,12 @@ body {
     width: 16em;
     height: 16em;
 
-    margin: auto;
+    margin: 2em auto;
 }
 
 #qrcode {
     border-radius: 0.5em;
     width: 100%;
-    margin: 0.2em;
 }
 
 #loc {
@@ -64,6 +63,69 @@ ul {
     font-weight: bold;
     line-height: 1.5em;
 }
+
+form {
+    box-shadow: 1px 1px 30px 1px #bbbbbb;
+    border-radius: 0.5em;
+    padding: 1.0em 0.5em;
+    margin: 2.0em 0;
+}
+
+input {
+    width: 100%;
+    border: 1px solid #bbbbbb;
+    border-radius: 0.4em;
+    padding: 0.5em;
+}
+
+input:focus {
+    outline: none;
+    border-color: #5c6971;
+}
+
+input[type=submit] {
+    color: white;
+    background-color: #5c6971;
+    border: none;
+    cursor: pointer;
+}
+
+input[type=submit]:hover, input[type=submit]:focus {
+    background-color: #778892;
+}
+
+.row {
+    text-align: left;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0.4em;
+}
+
+.col-25 {
+
+    width: 25%;
+}
+
+.col-50 {
+    width: 50%;
+}
+
+.col-75 {
+    width: 75%;
+}
+
+.col-100 {
+    width: 100%;
+}
+
+.col-25,
+.col-50,
+.col-75,
+.col-100 {
+    padding: 0 0.2em;
+}
+
+
 
 /* Mobile Style */
 @media screen and (max-width: 980px) {
