@@ -18,15 +18,25 @@ import (
 	"time"
 
 	"github.com/dateiexplorer/attendancelist/internal/journal"
-	"github.com/dateiexplorer/attendancelist/internal/token"
+	"github.com/dateiexplorer/attendancelist/internal/secure"
 )
 
-func getAccessToken(w http.ResponseWriter, r *http.Request, validTokens *token.ValidTokens) {
-	query := r.URL.Query()
-	location := journal.Location(query.Get("location"))
-
+func getAccessToken(w http.ResponseWriter, r *http.Request, validTokens *secure.ValidTokens) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
+
+	query := r.URL.Query()
+
+	// Without location query param get all tokens
+	if !query.Has("location") {
+		tokens := validTokens.GetAll()
+
+		res, _ := json.Marshal(tokens)
+		w.Write(res)
+		return
+	}
+
+	location := journal.Location(query.Get("location"))
 
 	if token, ok := validTokens.GetAccessTokenForLocation(location); ok {
 		res, _ := json.Marshal(token)
@@ -38,27 +48,27 @@ func getAccessToken(w http.ResponseWriter, r *http.Request, validTokens *token.V
 	w.Write([]byte(fmt.Sprintf("{\"err\":\"%v\"}", err)))
 }
 
-func isValidToken(w http.ResponseWriter, r *http.Request, validTokens *token.ValidTokens) {
+func isValidToken(w http.ResponseWriter, r *http.Request, validTokens *secure.ValidTokens) {
 	query := r.URL.Query()
 	id := query.Get("id")
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
-	var data token.ValidTokenResponse
+	var data secure.ValidTokenResponse
 
 	if value, ok := validTokens.Load(id); ok {
-		t, _ := value.(*token.AccessToken)
-		data = token.ValidTokenResponse{Valid: true, Token: t}
+		t, _ := value.(*secure.AccessToken)
+		data = secure.ValidTokenResponse{Valid: true, Token: t}
 	} else {
-		data = token.ValidTokenResponse{Valid: false, Token: nil}
+		data = secure.ValidTokenResponse{Valid: false, Token: nil}
 	}
 
 	res, _ := json.Marshal(data)
 	w.Write(res)
 }
 
-func getLocations(w http.ResponseWriter, r *http.Request, locations *token.Locations) {
+func getLocations(w http.ResponseWriter, r *http.Request, locations *secure.Locations) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
@@ -94,7 +104,7 @@ func main() {
 	}
 
 	// Load locations from XML file
-	locations, err := token.ReadLocationsFromXML(path.Join(wd, "cmd", "backend", "locations.xml"))
+	locations, err := secure.ReadLocationsFromXML(path.Join(wd, "cmd", "backend", "locations.xml"))
 	if err != nil {
 		panic(fmt.Errorf("locations not loaded: %w", err))
 	}

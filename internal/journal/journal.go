@@ -220,9 +220,9 @@ type Location string
 
 // A Person represents a citizen with a name and address.
 type Person struct {
-	FirstName string
-	LastName  string
-	Address   Address
+	FirstName string  `json:"firstName"`
+	LastName  string  `json:"lastName"`
+	Address   Address `json:"address"`
 }
 
 // NewPerson returns a new Person with the given attributes.
@@ -232,10 +232,10 @@ func NewPerson(firstName, lastName, street, number, zipCode, city string) Person
 
 // An Address represents a place where a people live.
 type Address struct {
-	Street  string
-	Number  string
-	ZipCode string
-	City    string
+	Street  string `json:"street"`
+	Number  string `json:"number"`
+	ZipCode string `json:"zipCode"`
+	City    string `json:"city"`
 }
 
 // An AttendanceList is a collection of AttendanceEntries.

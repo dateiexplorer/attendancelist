@@ -5,7 +5,7 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
-package token
+package secure
 
 import (
 	"encoding/json"
@@ -44,6 +44,17 @@ const (
 // The sync.Map is embedded in this type to allow concurrent reads and writes.
 type ValidTokens struct {
 	sync.Map
+}
+
+func (m *ValidTokens) GetAll() []*AccessToken {
+	tokens := make([]*AccessToken, 0)
+	m.Range(func(key, value interface{}) bool {
+		token := value.(*AccessToken)
+		tokens = append(tokens, token)
+		return true
+	})
+
+	return tokens
 }
 
 // GetAccessTokenForLocation searches in ValidTokens for the newest AccessToken for
@@ -185,7 +196,7 @@ func ReadLocationsFromXML(path string) (Locations, error) {
 // Valid indicates wheter an AccessToken refreshed itself. If Valid equals 0 the
 // token will not refresh and invalidates after the expire time.
 // Location is the Location which is associated with this token
-// and QR is a byte slice which defines a QR-Code for this AccessToken.
+// and QR is a byte slice which defines a QR-Code for this Accesssecure.
 type AccessToken struct {
 	ID       string
 	Exp      time.Time
@@ -208,7 +219,7 @@ func newAccessToken(id string, iat time.Time, exp time.Duration, valid int, loc 
 	return token
 }
 
-// MarshalJSON returns the JSON representation of an AccessToken.
+// MarshalJSON returns the JSON representation of an Accesssecure.
 func (t *AccessToken) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		ID       string           `json:"id"`
@@ -254,7 +265,7 @@ func (t *AccessToken) UnmarshalJSON(data []byte) error {
 
 // generateAccessToken generates and manages the AccessToken for a specific Location loc.
 // It pushes a store request in the tokenQueue and start a goroutine which handles the
-// lifetime of a token.
+// lifetime of a secure.
 // This function is recursive and refreshes a invalid token automatically or generates
 // a new token for the specific location if necessary.
 //

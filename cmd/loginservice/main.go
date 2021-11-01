@@ -9,6 +9,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -20,7 +21,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/dateiexplorer/attendancelist/internal/token"
+	"github.com/dateiexplorer/attendancelist/internal/journal"
+	"github.com/dateiexplorer/attendancelist/internal/secure"
 )
 
 func main() {
@@ -56,6 +58,34 @@ func main() {
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(path.Join(wd, "web", "static")))))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "POST":
+			// Perform login
+			if err := r.ParseForm(); err != nil {
+				return
+			}
+
+			fTokenID := r.FormValue("tokenId")
+			fLocation := r.FormValue("location")
+			fFirstName := r.FormValue("firstName")
+			fLastName := r.FormValue("lastName")
+			fStreet := r.FormValue("street")
+			fNumber := r.FormValue("number")
+			fZipCode := r.FormValue("zipCode")
+			fCity := r.FormValue("city")
+
+			if fTokenID == "" || fLocation == "" || fFirstName == "" || fLastName == "" || fStreet == "" || fNumber == "" || fZipCode == "" || fCity == "" {
+				// TODO: Form is not complete
+				return
+			}
+
+			// Check if token is valid
+			// Check for session
+			// Do login (maybe logout)
+		case "GET":
+			// Login/Logout
+		}
+
 		query := r.URL.Query()
 		if !query.Has("token") {
 			return
@@ -74,7 +104,7 @@ func main() {
 			return
 		}
 
-		var validTokenRes token.ValidTokenResponse
+		var validTokenRes secure.ValidTokenResponse
 		err = json.Unmarshal(body, &validTokenRes)
 
 		if err != nil {
@@ -89,15 +119,61 @@ func main() {
 
 		// End check if token is valid
 
-		cookie, err := r.Cookie("test")
+		cookie, err := r.Cookie("user")
+		var userCookie secure.UserCookie
 		if err != nil {
 			// Cookie not found
-		} else {
-			fmt.Println(cookie.Value)
+
+			// TODO: Set Cookie
+			test := journal.NewPerson("Max", "Mustermann", "Musterstadt", "20", "74722", "Buchen")
+			hash, _ := secure.Hash(test, "privServerSecret")
+			testCookie := secure.UserCookie{Person: &test, Hash: hash}
+
+			val, _ := json.Marshal(testCookie)
+			value := base64.StdEncoding.EncodeToString(val)
+
+			userCookie := &http.Cookie{
+				Name:  "user",
+				Value: value,
+			}
+
+			http.SetCookie(w, userCookie)
+			// w.Write([]byte("Cookie set."))
+
+			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
+			t.Execute(w, struct {
+				Person *journal.Person
+				Token  *secure.AccessToken
+			}{nil, validTokenRes.Token})
+			return
+		}
+
+		// Cookie is available
+		decode, err := base64.StdEncoding.DecodeString(cookie.Value)
+
+		err = json.Unmarshal([]byte(decode), &userCookie)
+		fmt.Println(*userCookie.Person, err)
+		if err != nil {
+			return
+		}
+
+		// Check if data is valid
+		serverHash, err := secure.Hash(*userCookie.Person, "privServerSecret")
+		if serverHash != userCookie.Hash {
+			w.Write([]byte("Invalid hash"))
+			return
+		}
+
+		obj := struct {
+			Person *journal.Person
+			Token  *secure.AccessToken
+		}{
+			Person: userCookie.Person,
+			Token:  validTokenRes.Token,
 		}
 
 		t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
-		t.Execute(w, *validTokenRes.Token)
+		t.Execute(w, obj)
 	})
 
 	// Proxy for backend to avoid cors issues.

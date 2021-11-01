@@ -41,7 +41,7 @@ async function getQRCode() {
 				// If the access code already is expired wait an amount of time
 				// for the next fetch.
 				// This happens if the fetch started before the server has
-				// generated the new access token.
+				// generated the new access secure.
 				if (diff < 0) {
 					await sleep(500);
 				}

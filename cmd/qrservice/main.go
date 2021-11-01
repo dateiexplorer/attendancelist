@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/dateiexplorer/attendancelist/internal/journal"
-	"github.com/dateiexplorer/attendancelist/internal/token"
+	"github.com/dateiexplorer/attendancelist/internal/secure"
 )
 
 func main() {
@@ -71,7 +71,7 @@ func main() {
 			return
 		}
 
-		var locations token.Locations
+		var locations secure.Locations
 		err = json.Unmarshal(body, &locations)
 		if err != nil {
 			return

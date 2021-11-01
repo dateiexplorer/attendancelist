@@ -5,7 +5,7 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
-package token
+package secure
 
 import (
 	"testing"
