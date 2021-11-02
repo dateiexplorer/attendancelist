@@ -57,6 +57,11 @@ func ParseTimestamp(value string) (Timestamp, error) {
 	return Timestamp{time}, nil
 }
 
+func Now() Timestamp {
+	now := time.Now().UTC()
+	return NewTimestamp(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
+}
+
 // Clock returns the time part of a Timestamp as a string formatted as "hh:mm:ss".
 // Each value is separeted with a colon.
 //

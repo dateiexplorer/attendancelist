@@ -13,7 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -66,7 +66,7 @@ func main() {
 			return
 		}
 
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return
 		}
@@ -99,7 +99,9 @@ func main() {
 			return
 		}
 
-		body, err := ioutil.ReadAll(res.Body)
+		defer res.Body.Close()
+
+		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return
 		}

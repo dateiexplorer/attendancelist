@@ -110,7 +110,7 @@ func doAction(action Action, journalDir string, journalDate timeutil.Date) error
 
 	loop:
 		for _, e := range j.Entries() {
-			p := e.Person()
+			p := e.Person
 
 			for _, per := range persons {
 				if p == per {

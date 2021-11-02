@@ -219,16 +219,18 @@ func newAccessToken(id string, iat time.Time, exp time.Duration, valid int, loc 
 	return token
 }
 
+type jsonAccessToken struct {
+	ID       string           `json:"id"`
+	Exp      int64            `json:"exp"`
+	Iat      int64            `json:"iat"`
+	Valid    int              `json:"valid"`
+	Location journal.Location `json:"loc"`
+	QR       []byte           `json:"qr"`
+}
+
 // MarshalJSON returns the JSON representation of an Accesssecure.
 func (t *AccessToken) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		ID       string           `json:"id"`
-		Exp      int64            `json:"exp"`
-		Iat      int64            `json:"iat"`
-		Valid    int              `json:"valid"`
-		Location journal.Location `json:"loc"`
-		QR       []byte           `json:"qr"`
-	}{
+	return json.Marshal(jsonAccessToken{
 		ID:       t.ID,
 		Exp:      t.Exp.Unix(),
 		Iat:      t.Iat.Unix(),
@@ -239,14 +241,7 @@ func (t *AccessToken) MarshalJSON() ([]byte, error) {
 }
 
 func (t *AccessToken) UnmarshalJSON(data []byte) error {
-	tmp := struct {
-		ID       string           `json:"id"`
-		Exp      int64            `json:"exp"`
-		Iat      int64            `json:"iat"`
-		Valid    int              `json:"valid"`
-		Location journal.Location `json:"loc"`
-		QR       []byte           `json:"qr"`
-	}{}
+	var tmp jsonAccessToken
 
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {

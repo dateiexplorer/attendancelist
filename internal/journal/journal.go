@@ -102,7 +102,7 @@ func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 func WriteToJournalFile(dir string, e JournalEntry) error {
 	// Get wright journal file for this entry.
 	// Every day has it's own journal file.
-	date := e.timestamp.Date()
+	date := e.Timestamp.Date()
 	f, err := os.OpenFile(path.Join(dir, date.String()+".log"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("cannot write to journal file: %w", err)
@@ -111,8 +111,8 @@ func WriteToJournalFile(dir string, e JournalEntry) error {
 	defer f.Close()
 
 	// Write to journal file
-	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.timestamp, e.session, e.event, e.location, e.person.FirstName, e.person.LastName,
-		e.person.Address.Street, e.person.Address.Number, e.person.Address.ZipCode, e.person.Address.City)
+	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.Timestamp, e.Session, e.Event, e.Location, e.Person.FirstName, e.Person.LastName,
+		e.Person.Address.Street, e.Person.Address.Number, e.Person.Address.ZipCode, e.Person.Address.City)
 	_, err = f.WriteString(s)
 	if err != nil {
 		return fmt.Errorf("cannot write to journal file: %w", err)
@@ -132,8 +132,8 @@ func (j Journal) GetVisitedLocationsForPerson(p Person) []Location {
 	// Use a map to guarantee that a Location appears only once in the slice.
 	m := map[Location]Location{}
 	for _, e := range j.entries {
-		if e.person == p {
-			m[e.location] = e.location
+		if e.Person == p {
+			m[e.Location] = e.Location
 		}
 	}
 
@@ -157,14 +157,14 @@ func (j Journal) GetVisitedLocationsForPerson(p Person) []Location {
 func (j Journal) GetAttendanceListForLocation(l Location) AttendanceList {
 	m := map[SessionIdentifier]AttendanceEntry{}
 	for _, e := range j.entries {
-		if e.location == l {
-			switch e.event {
+		if e.Location == l {
+			switch e.Event {
 			case Login:
-				m[e.session] = NewAttendanceEntry(e.person, e.timestamp, timeutil.InvalidTimestamp)
+				m[e.Session] = NewAttendanceEntry(e.Person, e.Timestamp, timeutil.InvalidTimestamp)
 			case Logout:
-				if entry, ok := m[e.session]; ok {
-					entry.logout = e.timestamp
-					m[e.session] = entry
+				if entry, ok := m[e.Session]; ok {
+					entry.logout = e.Timestamp
+					m[e.Session] = entry
 				}
 			}
 		}
@@ -195,15 +195,15 @@ type SessionIdentifier string
 
 // A JournalEntry represents one row in the Journal.
 type JournalEntry struct {
-	timestamp timeutil.Timestamp
-	session   SessionIdentifier
-	event     Event
-	location  Location
-	person    Person
+	Timestamp timeutil.Timestamp `json:"timestamp"`
+	Session   SessionIdentifier  `json:"session"`
+	Event     Event              `json:"event"`
+	Location  Location           `json:"location"`
+	Person    Person             `json:"person"`
 }
 
-func (e *JournalEntry) Person() Person {
-	return e.person
+func NewJournalEntry(timestamp timeutil.Timestamp, session SessionIdentifier, event Event, location Location, person Person) JournalEntry {
+	return JournalEntry{timestamp, session, event, location, person}
 }
 
 // An Event represents the reason why a new JournalEntry was written into the

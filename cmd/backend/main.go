@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -80,6 +81,21 @@ func getLocations(w http.ResponseWriter, r *http.Request, locations *secure.Loca
 	w.Write(res)
 }
 
+func addJournalEntry(w http.ResponseWriter, r *http.Request, journalWriter chan<- journal.JournalEntry) {
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+
+	var entry journal.JournalEntry
+	err = json.Unmarshal(data, &entry)
+	if err != nil {
+		return
+	}
+
+	journalWriter <- entry
+}
+
 func main() {
 	var port, expireTime, loginPort int
 	var url, loginURL string
@@ -113,6 +129,14 @@ func main() {
 	// Tokens update automatically
 	validTokens := locations.GenerateAccessTokens(10, time.Duration(expireTime)*time.Second, loginURL, loginPort)
 
+	// Initialize journal writer
+	journalWriter := make(chan journal.JournalEntry, 64)
+	go func() {
+		for entry := range journalWriter {
+			journal.WriteToJournalFile(path.Join(wd, "data"), entry)
+		}
+	}()
+
 	http.HandleFunc("/tokens", func(w http.ResponseWriter, r *http.Request) {
 		getAccessToken(w, r, validTokens)
 	})
@@ -123,6 +147,13 @@ func main() {
 
 	http.HandleFunc("/locations", func(w http.ResponseWriter, r *http.Request) {
 		getLocations(w, r, &locations)
+	})
+
+	http.HandleFunc("/entries", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "POST":
+			addJournalEntry(w, r, journalWriter)
+		}
 	})
 
 	fmt.Fprintf(log.Writer(), "Start backend server on %v:%v with params expire-time=%v, login-url=%v, login-port:%v\n", url, port, expireTime, loginURL, loginPort)

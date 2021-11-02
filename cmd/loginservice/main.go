@@ -8,13 +8,14 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -24,6 +25,36 @@ import (
 	"github.com/dateiexplorer/attendancelist/internal/journal"
 	"github.com/dateiexplorer/attendancelist/internal/secure"
 )
+
+const privServerSecret = "privateServerSecret"
+
+func isTokenValid(id string, backendURL string, backendPort int) (*secure.ValidTokenResponse, error) {
+	res, err := http.Get(fmt.Sprintf("https://%v:%v/tokens/valid?id=%v", backendURL, backendPort, id))
+	if err != nil {
+		return nil, fmt.Errorf("get request failed: %w", err)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read body: %w", err)
+	}
+
+	var validTokenRes secure.ValidTokenResponse
+	json.Unmarshal(body, &validTokenRes)
+
+	return &validTokenRes, nil
+}
+
+func onInvalidCookie(w http.ResponseWriter, wd string, validToken *secure.AccessToken) {
+	t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
+	t.Execute(w, struct {
+		Person *journal.Person
+		Token  *secure.AccessToken
+	}{
+		Person: nil,
+		Token:  validToken,
+	})
+}
 
 func main() {
 	// Since this application uses a TLS secured connection with a self signed
@@ -55,13 +86,122 @@ func main() {
 		panic(fmt.Errorf("cannot get working directory: %w", err))
 	}
 
+	// Init journal writer
+	journalWriter := make(chan journal.JournalEntry, 64)
+	go func() {
+		for entry := range journalWriter {
+			body, err := json.Marshal(entry)
+			if err != nil {
+				fmt.Fprint(os.Stderr, fmt.Errorf("cannot marshal JournalEntry: %w", err))
+				continue
+			}
+
+			res, err := http.Post(fmt.Sprintf("https://%v:%v/entries", backendURL, backendPort), "application/json", bytes.NewBuffer(body))
+			if err != nil {
+				fmt.Fprint(os.Stderr, fmt.Errorf("failed to post data to backend: %w", err))
+				continue
+			}
+
+			res.Body.Close()
+		}
+	}()
+
+	// Init session manager
+	openSessions, sessionQueue, sessionIDs := secure.RunSessionManager(journalWriter, 10)
+
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(path.Join(wd, "web", "static")))))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
+		case "GET":
+			// Check if query param "token" is set.
+			query := r.URL.Query()
+			if !query.Has("token") {
+				return
+			}
+
+			qTokenID := query.Get("token")
+			validTokenRes, err := isTokenValid(qTokenID, backendURL, backendPort)
+			if err != nil {
+				// Error while reading = An error occured.
+				fmt.Println("error while reading = An error occured.")
+				return
+			}
+
+			if !validTokenRes.Valid {
+				// Access denied.
+				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "forbidden.html")))
+				t.Execute(w, nil)
+				return
+			}
+
+			// Has Cookie?
+			cookie, err := r.Cookie("user")
+			if err != nil {
+				fmt.Println("cookie not found")
+				// No cookie found
+				// User login for the first time or cookie is lost
+				// In both cases the form must be filled in
+				onInvalidCookie(w, wd, validTokenRes.Token)
+				return
+			}
+
+			// Cookie is available
+			var userCookie secure.UserCookie
+
+			// Check if cookie is valid
+			decodedCookie, err := base64.StdEncoding.DecodeString(cookie.Value)
+			if err != nil {
+				// Cannot decode = Invalid Cookie
+				fmt.Println("cannot decode = Invalid Cookie")
+				onInvalidCookie(w, wd, validTokenRes.Token)
+				return
+			}
+
+			err = json.Unmarshal([]byte(decodedCookie), &userCookie)
+			if err != nil {
+				// Cannot unmarhsal = Invalid Cookie
+				fmt.Println("cannot unmarshal = Invalid Cookie")
+				onInvalidCookie(w, wd, validTokenRes.Token)
+				return
+			}
+
+			// Check if data is valid (hash)
+			hash, err := secure.Hash(*userCookie.Person, privServerSecret)
+			if err != nil || hash != userCookie.Hash {
+				// Hash is invalid = Invalid Cookie
+				fmt.Println("hash is invalid = Invalid Cookie")
+				onInvalidCookie(w, wd, validTokenRes.Token)
+				return
+			}
+
+			// Cookie is available and valid
+			// Search for UserSession with the same location
+			// If found, perform logout
+			if userSession, ok := openSessions.GetSessionForUser(hash); ok {
+				if userSession.Location == validTokenRes.Token.Location {
+					// Same location => perform logout
+					sessionQueue <- secure.CloseSession(userSession, userCookie.Person)
+					t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "logout.html")))
+					t.Execute(w, validTokenRes.Token.Location)
+					return
+				}
+			}
+
+			// If the location isn't the same as the location in the UserSession
+			// or UserSession doesn't exists, show filled login form
+			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
+			t.Execute(w, struct {
+				Person *journal.Person
+				Token  *secure.AccessToken
+			}{
+				Person: userCookie.Person,
+				Token:  validTokenRes.Token,
+			})
 		case "POST":
 			// Perform login
 			if err := r.ParseForm(); err != nil {
+				// Form cannot be parsed, Error
 				return
 			}
 
@@ -75,105 +215,40 @@ func main() {
 			fCity := r.FormValue("city")
 
 			if fTokenID == "" || fLocation == "" || fFirstName == "" || fLastName == "" || fStreet == "" || fNumber == "" || fZipCode == "" || fCity == "" {
-				// TODO: Form is not complete
+				// Form is incomplete, Error
 				return
 			}
 
-			// Check if token is valid
-			// Check for session
-			// Do login (maybe logout)
-		case "GET":
-			// Login/Logout
-		}
-
-		query := r.URL.Query()
-		if !query.Has("token") {
-			return
-		}
-
-		tokenID := query.Get("token")
-
-		// Check if token is valid
-		res, err := http.Get(fmt.Sprintf("https://%v:%v/tokens/valid?id=%v", backendURL, backendPort, tokenID))
-		if err != nil {
-			return
-		}
-
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return
-		}
-
-		var validTokenRes secure.ValidTokenResponse
-		err = json.Unmarshal(body, &validTokenRes)
-
-		if err != nil {
-			return
-		}
-
-		if !validTokenRes.Valid {
-			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "forbidden.html")))
-			t.Execute(w, nil)
-			return
-		}
-
-		// End check if token is valid
-
-		cookie, err := r.Cookie("user")
-		var userCookie secure.UserCookie
-		if err != nil {
-			// Cookie not found
-
-			// TODO: Set Cookie
-			test := journal.NewPerson("Max", "Mustermann", "Musterstadt", "20", "74722", "Buchen")
-			hash, _ := secure.Hash(test, "privServerSecret")
-			testCookie := secure.UserCookie{Person: &test, Hash: hash}
-
-			val, _ := json.Marshal(testCookie)
-			value := base64.StdEncoding.EncodeToString(val)
-
-			userCookie := &http.Cookie{
-				Name:  "user",
-				Value: value,
+			validTokenRes, err := isTokenValid(fTokenID, backendURL, backendPort)
+			if err != nil {
+				// Error while readding = An error occured.
+				return
 			}
 
+			location := journal.Location(fLocation)
+			if !validTokenRes.Valid || validTokenRes.Token.Location != location {
+				// Access denied.
+				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "forbidden.html")))
+				t.Execute(w, nil)
+				return
+			}
+
+			// Show login page and set new UserCookie
+			person := journal.NewPerson(fFirstName, fLastName, fStreet, fNumber, fZipCode, fCity)
+
+			userCookie, hash := secure.CreateUserCookie(&person, privServerSecret)
 			http.SetCookie(w, userCookie)
-			// w.Write([]byte("Cookie set."))
 
-			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
-			t.Execute(w, struct {
-				Person *journal.Person
-				Token  *secure.AccessToken
-			}{nil, validTokenRes.Token})
-			return
+			// Token is valid, Check if session exists
+			// If UserSession exists, perform first logout and login afterwards
+			if userSession, ok := openSessions.GetSessionForUser(hash); ok {
+				sessionQueue <- secure.CloseSession(userSession, &person)
+			}
+
+			sessionQueue <- secure.OpenSession(sessionIDs, &person, location, privServerSecret)
+			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "success.html")))
+			t.Execute(w, location)
 		}
-
-		// Cookie is available
-		decode, err := base64.StdEncoding.DecodeString(cookie.Value)
-
-		err = json.Unmarshal([]byte(decode), &userCookie)
-		fmt.Println(*userCookie.Person, err)
-		if err != nil {
-			return
-		}
-
-		// Check if data is valid
-		serverHash, err := secure.Hash(*userCookie.Person, "privServerSecret")
-		if serverHash != userCookie.Hash {
-			w.Write([]byte("Invalid hash"))
-			return
-		}
-
-		obj := struct {
-			Person *journal.Person
-			Token  *secure.AccessToken
-		}{
-			Person: userCookie.Person,
-			Token:  validTokenRes.Token,
-		}
-
-		t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
-		t.Execute(w, obj)
 	})
 
 	// Proxy for backend to avoid cors issues.
@@ -185,7 +260,9 @@ func main() {
 			return
 		}
 
-		body, err := ioutil.ReadAll(res.Body)
+		defer res.Body.Close()
+
+		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return
 		}
