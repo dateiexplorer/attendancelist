@@ -5,6 +5,9 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
+// Package timeutil provides functionality for working with timestamps.
+//
+// All types are based on the time package from the standard library.
 package timeutil
 
 import (

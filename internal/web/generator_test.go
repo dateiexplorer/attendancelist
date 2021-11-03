@@ -5,7 +5,9 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
-package secure
+// Package web provides all functionality which is necessary for the
+// service communication, such as cookies or user session management.
+package web
 
 import (
 	"testing"
@@ -29,18 +31,16 @@ func TestRandIdGeneratorOddId(t *testing.T) {
 }
 
 func TestHash(t *testing.T) {
-	expected := "247a3960dc918d4706c3ac69b4d86fe963f8237d8be0d283fdc6a9b4b0b694cd"
 	person1 := journal.NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
 	person2 := journal.NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
-	privkey1 := "privServerSecret1"
+	privkey := "privServerSecret1"
 
-	hashPerson1, err := Hash(person1, privkey1)
+	hashPerson1, err := Hash(person1, privkey)
 
 	assert.NoError(t, err)
-	assert.Equal(t, expected, hashPerson1)
 
 	// To hashes with the same data should be equal
-	hashPerson2, err := Hash(person2, privkey1)
+	hashPerson2, err := Hash(person2, privkey)
 
 	assert.NoError(t, err)
 	assert.Equal(t, hashPerson1, hashPerson2)

@@ -57,6 +57,8 @@ func ParseTimestamp(value string) (Timestamp, error) {
 	return Timestamp{time}, nil
 }
 
+// Now returns the current Timestamp in timezone UTC.
+// It calls the time.Now function and wraps it in the Timestamp type.
 func Now() Timestamp {
 	now := time.Now().UTC()
 	return NewTimestamp(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())

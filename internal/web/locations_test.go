@@ -5,9 +5,12 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
-package secure
+// Package web provides all functionality which is necessary for the
+// service communication, such as cookies or user session management.
+package web
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
@@ -46,6 +49,22 @@ func TestReadLocationFromXMLFailedRead(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.EqualValues(t, expected, actual)
+}
+
+func TestUnmarshalJSON(t *testing.T) {
+	expected := Locations{[]journal.Location{"DHBW Mosbach", "Alte Mälzerei"}}
+
+	var actual Locations
+	actual.UnmarshalJSON([]byte(`["DHBW Mosbach", "Alte Mälzerei"]`))
+
+	assert.Equal(t, expected, actual)
+}
+
+func TestUnmarshalJSONFail(t *testing.T) {
+	var actual Locations
+	err := actual.UnmarshalJSON([]byte(`["DHBW Mosbach", "Alte Mälzerei", 0]`))
+
+	assert.Error(t, err)
 }
 
 func TestNewAccessToken(t *testing.T) {
@@ -89,6 +108,31 @@ func TestMarhsalJSONAccessToken(t *testing.T) {
 	actual, err := token.MarshalJSON()
 	assert.NoError(t, err)
 	assert.Equal(t, expected, string(actual))
+}
+
+func TestUnmarshalJSONAccessToken(t *testing.T) {
+	// Get iat and exp but with precicion of seconds
+	iat := time.Unix(time.Now().Unix(), 0)
+	exp := iat.Add(time.Duration(10) * time.Second)
+	qr, err := qrcode.Encode("localhost:8081?token=aabbccddee", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	expected := AccessToken{"aabbccddee", exp, iat, 1, "DHBW Mosbach", qr}
+
+	json := fmt.Sprintf(`{
+		"id": "aabbccddee",
+		"exp": %v,
+		"iat": %v,
+		"valid": 1,
+		"loc": "DHBW Mosbach",
+		"qr": "%v"
+	}`, exp.Unix(), iat.Unix(), base64.StdEncoding.EncodeToString(qr))
+
+	var actual AccessToken
+	err = actual.UnmarshalJSON([]byte(json))
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, actual)
 }
 
 func TestGenerateAccessToken(t *testing.T) {
@@ -155,6 +199,47 @@ func TestGenerateAccessTokenRefresh(t *testing.T) {
 	assert.Equal(t, expected.QR, actual.token.QR)
 }
 
+func TestGetAll(t *testing.T) {
+	// Prepare validTokens
+	validTokens := new(ValidTokens)
+
+	for i := 0; i < len(tokens); i++ {
+		validTokens.Store(tokens[i].ID, &tokens[i])
+	}
+
+	// Get all tokens
+	all := validTokens.GetAll()
+
+	found := 0
+	// Check if tokens are in all.
+	validTokens.Range(func(key, value interface{}) bool {
+		val := value.(*AccessToken)
+		for _, token := range all {
+			if val.ID == token.ID {
+				found++
+
+				// Tokens must be equal
+				assert.Equal(t, token, val)
+				break
+			}
+		}
+
+		return true
+	})
+
+	// Found must be equal length of tokens.
+	// All tokens get
+	assert.Equal(t, len(tokens), found)
+}
+
+func TestGetAllEmptyMap(t *testing.T) {
+	validTokens := new(ValidTokens)
+	expected := make([]*AccessToken, 0)
+
+	actual := validTokens.GetAll()
+	assert.Equal(t, expected, actual)
+}
+
 func TestGetAcceessTokenForLocation(t *testing.T) {
 	validTokens := new(ValidTokens)
 
@@ -185,16 +270,18 @@ func TestGetAcceessTokenForLocationNotFound(t *testing.T) {
 func TestRunValidTokens(t *testing.T) {
 	validTokens := new(ValidTokens)
 
-	tokenQueue := make(chan TokenQueueItem, 1)
+	tokenQueue := make(chan TokenQueueItem)
+	log := make(chan TokenQueueItem)
 
 	// Run goroutine in background
-	validTokens.run(tokenQueue)
+	validTokens.run(tokenQueue, log)
 
 	// Add item
-	tokenQueue <- TokenQueueItem{Add, &tokens[0]}
+	addItem := TokenQueueItem{Add, &tokens[0]}
+	tokenQueue <- addItem
+	reflectedItem := <-log
 
-	// Maximum time to store the value
-	time.Sleep(time.Duration(1) * time.Second)
+	assert.Equal(t, addItem, reflectedItem)
 
 	value, ok := validTokens.Load(tokens[0].ID)
 	assert.True(t, ok)
@@ -204,10 +291,10 @@ func TestRunValidTokens(t *testing.T) {
 	assert.Equal(t, &tokens[0], actual)
 
 	// Remove item
-	tokenQueue <- TokenQueueItem{Invalidate, &tokens[0]}
+	invalidateItem := TokenQueueItem{Invalidate, &tokens[0]}
 
-	// Maximum time to remove the value
-	time.Sleep(time.Duration(1) * time.Second)
+	tokenQueue <- invalidateItem
+	reflectedItem = <-log
 
 	value, ok = validTokens.Load(tokens[0].ID)
 	assert.False(t, ok)
@@ -216,10 +303,12 @@ func TestRunValidTokens(t *testing.T) {
 
 func TestGenerateAccessTokens(t *testing.T) {
 	exp := time.Duration(10) * time.Second
-	validTokens := locations.GenerateAccessTokens(10, exp, "localhost", 8081)
+	validTokens, log := locations.GenerateAccessTokens(10, exp, "localhost", 8081)
 
-	// Time to store values
-	time.Sleep(time.Duration(1) * time.Second)
+	// Wait until all items are stored
+	for i := 0; i < len(locations.Locations); i++ {
+		<-log
+	}
 
 	found := 0
 	for _, loc := range locations.Locations {
@@ -244,4 +333,14 @@ func TestGenerateAccessTokens(t *testing.T) {
 
 	// Check if all tokens are found
 	assert.Equal(t, len(locations.Locations), found)
+}
+
+func TestContains(t *testing.T) {
+	actual := locations.Contains("DHBW Mosbach")
+	assert.True(t, actual)
+}
+
+func TestContainsNotContains(t *testing.T) {
+	actual := locations.Contains("Night Club")
+	assert.False(t, actual)
 }

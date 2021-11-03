@@ -5,7 +5,9 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
-package secure
+// Package web provides all functionality which is necessary for the
+// service communication, such as cookies or user session management.
+package web
 
 import (
 	"crypto/rand"

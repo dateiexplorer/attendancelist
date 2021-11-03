@@ -5,6 +5,9 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
+// Package convert provides functionality to convert types between multiple formats.
+// A type must implement the Converter interface to prepare it for using this it
+// with this package.
 package convert
 
 import (

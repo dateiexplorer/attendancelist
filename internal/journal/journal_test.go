@@ -5,6 +5,7 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
+// Package journal provides functionality for writing text based journal files.
 package journal
 
 import (
@@ -86,7 +87,8 @@ func TestGetVisitedLocationsForPerson(t *testing.T) {
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
 
-	actual := journal.GetVisitedLocationsForPerson(persons["Max Mustermann"])
+	p := persons["Max Mustermann"]
+	actual := journal.GetVisitedLocationsForPerson(&p)
 
 	assert.NotNil(t, actual)
 	assert.Equal(t, expected, actual)
@@ -101,7 +103,8 @@ func TestGetVisitedLocationForPersonMultipleLocations(t *testing.T) {
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
 
-	actual := journal.GetVisitedLocationsForPerson(persons["Hans Müller"])
+	p := persons["Hans Müller"]
+	actual := journal.GetVisitedLocationsForPerson(&p)
 
 	assert.NotNil(t, actual)
 	for _, location := range expected {
@@ -116,7 +119,7 @@ func TestGetVisitedLocationsForPersonNotExistingPerson(t *testing.T) {
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
 
-	actual := journal.GetVisitedLocationsForPerson(person)
+	actual := journal.GetVisitedLocationsForPerson(&person)
 
 	assert.Equal(t, expected, actual)
 }
@@ -192,7 +195,7 @@ func TestWriteToJournalFile(t *testing.T) {
 
 	expected := JournalEntry{timestamp, "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"]}
 
-	err := WriteToJournalFile("testdata", expected)
+	err := WriteToJournalFile("testdata", &expected)
 	assert.NoError(t, err)
 
 	journal, err := ReadJournal("testdata", timestamp.Date())
@@ -216,7 +219,7 @@ func TestWriteToJournalFileAppendEntry(t *testing.T) {
 	}
 
 	for _, e := range expected {
-		err := WriteToJournalFile("testdata", e)
+		err := WriteToJournalFile("testdata", &e)
 		assert.NoError(t, err)
 	}
 
@@ -230,4 +233,24 @@ func TestWriteToJournalFileAppendEntry(t *testing.T) {
 
 	err = os.Remove(path.Join("testdata", date.String()+".log"))
 	assert.NoError(t, err)
+}
+
+func TestEntries(t *testing.T) {
+	expected := []JournalEntry{
+		{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"]},
+		{timeutil.NewTimestamp(2021, 10, 16, 17, 20, 0), "aabbccddeeff", Logout, "DHBW Mosbach", persons["Max Mustermann"]},
+	}
+
+	journal := Journal{timeutil.NewDate(2021, 10, 16), expected}
+	actual := journal.Entries()
+
+	assert.Equal(t, expected, actual)
+}
+
+func TestNewJournalEntry(t *testing.T) {
+	expected := JournalEntry{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"]}
+
+	actual := NewJournalEntry(timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"])
+
+	assert.Equal(t, expected, actual)
 }

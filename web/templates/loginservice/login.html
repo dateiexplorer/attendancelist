@@ -2,87 +2,17 @@
 <html>
 
 <head>
-    <title>DHBW Attendance List Application</title>
-    <link rel="stylesheet" href="/assets/css/style.css" />
+	<title>DHBW Attendance List Application</title>
+	<link rel="stylesheet" href="/assets/css/style.css" />
 </head>
 
 <body>
-    <div class="content">
-        <img id="logo" src="/assets/images/dhbw_mosbach_logo.png">
+	<div class="content">
+		<img id="logo" src="/assets/images/dhbw_mosbach_logo.png">
 
-        <p>Please fill in the form below to perform a login for the following location:</p>
-        <p id="loc">{{.Token.Location}}</p>
-        <form submit="/login" method="POST">
-            <div class="row">
-                <div class="col-50">
-                    {{if .Person}}
-                    <input type="text" placeholder="First Name" name="firstName" value={{.Person.FirstName}} required>
-                    {{else}}
-                    <input type="text" placeholder="First Name" name="firstName" required>
-                    {{end}}
-                </div>
-                <div class="col-50">
-                    {{if .Person}}
-                    <input type="text" placeholder="Last Name" name="lastName" value="{{.Person.LastName}}" required>
-                    {{else}}
-                    <input type="text" placeholder="Last Name" name="lastName" required>
-                    {{end}}
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-75">
-                    {{if .Person}}
-                    <input type="text" placeholder="Street" name="street" value="{{.Person.Address.Street}}" required>
-                    {{else}}
-                    <input type="text" placeholder="Street" name="street" required>
-                    {{end}}
-                </div>
-                <div class="col-25">
-                    {{if .Person}}
-                    <input type="text" placeholder="Nr." name="number" value="{{.Person.Address.Number}}" required>
-                    {{else}}
-                    <input type="text" placeholder="Nr." name="number" required>
-                    {{end}}
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-25">
-                    {{if .Person}}
-                    <input type="text" placeholder="Zip Code" name="zipCode" value="{{.Person.Address.ZipCode}}"
-                        required>
-                    {{else}}
-                    <input type="text" placeholder="Zip Code" name="zipCode" required>
-                    {{end}}
-                </div>
-                <div class="col-75">
-                    {{if .Person}}
-                    <input type="text" placeholder="City" name="city" value="{{.Person.Address.City}}" required>
-                    {{else}}
-                    <input type="text" placeholder="City" name="city" required>
-                    {{end}}
-                </div>
-            </div>
-
-            <!-- Hidden fields -->
-            <div class="row" style="display: none;">
-                <div class="col-50">
-                    <input type="text" name="tokenId" value="{{.Token.ID}}" required>
-                </div>
-                <div class="col-50">
-                    <input type="text" name="location" value="{{.Token.Location}}" required>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-100">
-                    <input type="submit" value="Login">
-                </div>
-            </div>
-        </form>
-
-        <p><a href="">Why I get the login formular, but I wanted to logout?</a></p>
-        <p>If there are any issues contact the EDV department of the DHBW Mosbach.</p>
-    </div>
+		<p><strong>Login</strong></p>
+		<p>You're successfully logged in into <strong>{{.}}</strong>.</p>
+	</div>
 </body>
 
 </html>

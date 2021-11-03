@@ -5,7 +5,9 @@
 //
 // Matriculation numbers of the authors: 5703004, 5736465
 
-package secure
+// Package web provides all functionality which is necessary for the
+// service communication, such as cookies or user session management.
+package web
 
 import (
 	"encoding/json"
@@ -83,7 +85,7 @@ func (m *ValidTokens) GetAccessTokenForLocation(loc journal.Location) (token *Ac
 
 // run listens to the tokenQueue channel and processes the action
 // for a token defined in the TokenQueueItem.
-func (m *ValidTokens) run(tokenQueue <-chan TokenQueueItem) {
+func (m *ValidTokens) run(tokenQueue <-chan TokenQueueItem, log chan<- TokenQueueItem) {
 	go func() {
 		for item := range tokenQueue {
 			switch item.action {
@@ -92,6 +94,8 @@ func (m *ValidTokens) run(tokenQueue <-chan TokenQueueItem) {
 			case Invalidate:
 				m.Delete(item.token.ID)
 			}
+
+			log <- item
 		}
 	}()
 }
@@ -116,18 +120,19 @@ type Locations struct {
 // specific idLength, expire duration, a baseUrl and a port.
 //
 // ValidTokens is updated in background.
-func (l *Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUrl string, port int) *ValidTokens {
+func (l *Locations) GenerateAccessTokens(idLength int, exp time.Duration, baseUrl string, port int) (*ValidTokens, <-chan TokenQueueItem) {
 	validTokens := new(ValidTokens)
 	tokenQueue := make(chan TokenQueueItem, len(l.Locations)*LastValidTokens)
 
-	validTokens.run(tokenQueue)
+	log := make(chan TokenQueueItem, len(l.Locations)*LastValidTokens)
+	validTokens.run(tokenQueue, log)
 
 	tokenIds := RandIDGenerator(idLength, len(l.Locations)*LastValidTokens)
 	for _, loc := range l.Locations {
 		generateAccessToken(tokenQueue, tokenIds, <-tokenIds, time.Now().UTC(), exp, LastValidTokens, loc, baseUrl, port)
 	}
 
-	return validTokens
+	return validTokens, log
 }
 
 // Contains returns true if a provided Location loc is in the Locations data
@@ -196,7 +201,7 @@ func ReadLocationsFromXML(path string) (Locations, error) {
 // Valid indicates wheter an AccessToken refreshed itself. If Valid equals 0 the
 // token will not refresh and invalidates after the expire time.
 // Location is the Location which is associated with this token
-// and QR is a byte slice which defines a QR-Code for this Accesssecure.
+// and QR is a byte slice which defines a QR-Code for this AccessToken.
 type AccessToken struct {
 	ID       string
 	Exp      time.Time
@@ -219,6 +224,9 @@ func newAccessToken(id string, iat time.Time, exp time.Duration, valid int, loc 
 	return token
 }
 
+// A jsonAccessToken is used for marshalling and unmarshalling an AccessToken.
+// It is necessary to convert an AccessToken to a JSON object and back to an
+// AccessToken.
 type jsonAccessToken struct {
 	ID       string           `json:"id"`
 	Exp      int64            `json:"exp"`
@@ -228,7 +236,7 @@ type jsonAccessToken struct {
 	QR       []byte           `json:"qr"`
 }
 
-// MarshalJSON returns the JSON representation of an Accesssecure.
+// MarshalJSON returns the JSON representation of an AccessToken.
 func (t *AccessToken) MarshalJSON() ([]byte, error) {
 	return json.Marshal(jsonAccessToken{
 		ID:       t.ID,
@@ -240,13 +248,12 @@ func (t *AccessToken) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// UnmarshalJSON returns an AccessToken from a JSON object.
+// If the data cannot parse into an AccessToken this function returns an error.
 func (t *AccessToken) UnmarshalJSON(data []byte) error {
 	var tmp jsonAccessToken
 
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
+	json.Unmarshal(data, &tmp)
 
 	t.ID = tmp.ID
 	t.Exp = time.Unix(tmp.Exp, 0)
@@ -260,7 +267,7 @@ func (t *AccessToken) UnmarshalJSON(data []byte) error {
 
 // generateAccessToken generates and manages the AccessToken for a specific Location loc.
 // It pushes a store request in the tokenQueue and start a goroutine which handles the
-// lifetime of a secure.
+// lifetime of a web.
 // This function is recursive and refreshes a invalid token automatically or generates
 // a new token for the specific location if necessary.
 //

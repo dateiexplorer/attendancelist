@@ -23,12 +23,12 @@ import (
 	"strings"
 
 	"github.com/dateiexplorer/attendancelist/internal/journal"
-	"github.com/dateiexplorer/attendancelist/internal/secure"
+	"github.com/dateiexplorer/attendancelist/internal/web"
 )
 
 const privServerSecret = "privateServerSecret"
 
-func isTokenValid(id string, backendURL string, backendPort int) (*secure.ValidTokenResponse, error) {
+func isTokenValid(id string, backendURL string, backendPort int) (*web.ValidTokenResponse, error) {
 	res, err := http.Get(fmt.Sprintf("https://%v:%v/tokens/valid?id=%v", backendURL, backendPort, id))
 	if err != nil {
 		return nil, fmt.Errorf("get request failed: %w", err)
@@ -39,17 +39,17 @@ func isTokenValid(id string, backendURL string, backendPort int) (*secure.ValidT
 		return nil, fmt.Errorf("cannot read body: %w", err)
 	}
 
-	var validTokenRes secure.ValidTokenResponse
+	var validTokenRes web.ValidTokenResponse
 	json.Unmarshal(body, &validTokenRes)
 
 	return &validTokenRes, nil
 }
 
-func onInvalidCookie(w http.ResponseWriter, wd string, validToken *secure.AccessToken) {
-	t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
+func onInvalidCookie(w http.ResponseWriter, wd string, validToken *web.AccessToken) {
+	t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "form.html")))
 	t.Execute(w, struct {
 		Person *journal.Person
-		Token  *secure.AccessToken
+		Token  *web.AccessToken
 	}{
 		Person: nil,
 		Token:  validToken,
@@ -107,7 +107,7 @@ func main() {
 	}()
 
 	// Init session manager
-	openSessions, sessionQueue, sessionIDs := secure.RunSessionManager(journalWriter, 10)
+	openSessions, sessionQueue, sessionIDs := web.RunSessionManager(journalWriter, 10)
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(path.Join(wd, "web", "static")))))
 
@@ -117,6 +117,8 @@ func main() {
 			// Check if query param "token" is set.
 			query := r.URL.Query()
 			if !query.Has("token") {
+				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "accessDenied.html")))
+				t.Execute(w, nil)
 				return
 			}
 
@@ -125,12 +127,14 @@ func main() {
 			if err != nil {
 				// Error while reading = An error occured.
 				fmt.Println("error while reading = An error occured.")
+				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "anErrorOccured.html")))
+				t.Execute(w, "communication with backend failed, retry it later")
 				return
 			}
 
 			if !validTokenRes.Valid {
 				// Access denied.
-				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "forbidden.html")))
+				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "accessDenied.html")))
 				t.Execute(w, nil)
 				return
 			}
@@ -147,7 +151,7 @@ func main() {
 			}
 
 			// Cookie is available
-			var userCookie secure.UserCookie
+			var userCookie web.UserCookie
 
 			// Check if cookie is valid
 			decodedCookie, err := base64.StdEncoding.DecodeString(cookie.Value)
@@ -167,7 +171,7 @@ func main() {
 			}
 
 			// Check if data is valid (hash)
-			hash, err := secure.Hash(*userCookie.Person, privServerSecret)
+			hash, err := web.Hash(*userCookie.Person, privServerSecret)
 			if err != nil || hash != userCookie.Hash {
 				// Hash is invalid = Invalid Cookie
 				fmt.Println("hash is invalid = Invalid Cookie")
@@ -181,7 +185,7 @@ func main() {
 			if userSession, ok := openSessions.GetSessionForUser(hash); ok {
 				if userSession.Location == validTokenRes.Token.Location {
 					// Same location => perform logout
-					sessionQueue <- secure.CloseSession(userSession, userCookie.Person)
+					sessionQueue <- web.CloseSession(userSession, userCookie.Person)
 					t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "logout.html")))
 					t.Execute(w, validTokenRes.Token.Location)
 					return
@@ -190,10 +194,10 @@ func main() {
 
 			// If the location isn't the same as the location in the UserSession
 			// or UserSession doesn't exists, show filled login form
-			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
+			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "form.html")))
 			t.Execute(w, struct {
 				Person *journal.Person
-				Token  *secure.AccessToken
+				Token  *web.AccessToken
 			}{
 				Person: userCookie.Person,
 				Token:  validTokenRes.Token,
@@ -202,6 +206,8 @@ func main() {
 			// Perform login
 			if err := r.ParseForm(); err != nil {
 				// Form cannot be parsed, Error
+				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "anErrorOccured.html")))
+				t.Execute(w, err.Error())
 				return
 			}
 
@@ -222,13 +228,15 @@ func main() {
 			validTokenRes, err := isTokenValid(fTokenID, backendURL, backendPort)
 			if err != nil {
 				// Error while readding = An error occured.
+				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "anErrorOccured.html")))
+				t.Execute(w, err.Error())
 				return
 			}
 
 			location := journal.Location(fLocation)
 			if !validTokenRes.Valid || validTokenRes.Token.Location != location {
 				// Access denied.
-				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "forbidden.html")))
+				t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "accessDenied.html")))
 				t.Execute(w, nil)
 				return
 			}
@@ -236,19 +244,24 @@ func main() {
 			// Show login page and set new UserCookie
 			person := journal.NewPerson(fFirstName, fLastName, fStreet, fNumber, fZipCode, fCity)
 
-			userCookie, hash := secure.CreateUserCookie(&person, privServerSecret)
+			userCookie, hash := web.CreateUserCookie(&person, privServerSecret)
 			http.SetCookie(w, userCookie)
 
 			// Token is valid, Check if session exists
 			// If UserSession exists, perform first logout and login afterwards
 			if userSession, ok := openSessions.GetSessionForUser(hash); ok {
-				sessionQueue <- secure.CloseSession(userSession, &person)
+				sessionQueue <- web.CloseSession(userSession, &person)
 			}
 
-			sessionQueue <- secure.OpenSession(sessionIDs, &person, location, privServerSecret)
-			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "success.html")))
+			sessionQueue <- web.OpenSession(sessionIDs, &person, location, privServerSecret)
+			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
 			t.Execute(w, location)
 		}
+	})
+
+	http.HandleFunc("/faq", func(w http.ResponseWriter, r *http.Request) {
+		t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "faq.html")))
+		t.Execute(w, nil)
 	})
 
 	// Proxy for backend to avoid cors issues.

@@ -19,10 +19,10 @@ import (
 	"time"
 
 	"github.com/dateiexplorer/attendancelist/internal/journal"
-	"github.com/dateiexplorer/attendancelist/internal/secure"
+	"github.com/dateiexplorer/attendancelist/internal/web"
 )
 
-func getAccessToken(w http.ResponseWriter, r *http.Request, validTokens *secure.ValidTokens) {
+func getAccessToken(w http.ResponseWriter, r *http.Request, validTokens *web.ValidTokens) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
@@ -49,27 +49,27 @@ func getAccessToken(w http.ResponseWriter, r *http.Request, validTokens *secure.
 	w.Write([]byte(fmt.Sprintf("{\"err\":\"%v\"}", err)))
 }
 
-func isValidToken(w http.ResponseWriter, r *http.Request, validTokens *secure.ValidTokens) {
+func isValidToken(w http.ResponseWriter, r *http.Request, validTokens *web.ValidTokens) {
 	query := r.URL.Query()
 	id := query.Get("id")
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
-	var data secure.ValidTokenResponse
+	var data web.ValidTokenResponse
 
 	if value, ok := validTokens.Load(id); ok {
-		t, _ := value.(*secure.AccessToken)
-		data = secure.ValidTokenResponse{Valid: true, Token: t}
+		t, _ := value.(*web.AccessToken)
+		data = web.ValidTokenResponse{Valid: true, Token: t}
 	} else {
-		data = secure.ValidTokenResponse{Valid: false, Token: nil}
+		data = web.ValidTokenResponse{Valid: false, Token: nil}
 	}
 
 	res, _ := json.Marshal(data)
 	w.Write(res)
 }
 
-func getLocations(w http.ResponseWriter, r *http.Request, locations *secure.Locations) {
+func getLocations(w http.ResponseWriter, r *http.Request, locations *web.Locations) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
@@ -120,20 +120,25 @@ func main() {
 	}
 
 	// Load locations from XML file
-	locations, err := secure.ReadLocationsFromXML(path.Join(wd, "cmd", "backend", "locations.xml"))
+	locations, err := web.ReadLocationsFromXML(path.Join(wd, "cmd", "backend", "locations.xml"))
 	if err != nil {
 		panic(fmt.Errorf("locations not loaded: %w", err))
 	}
 
 	// Initialize token map
 	// Tokens update automatically
-	validTokens := locations.GenerateAccessTokens(10, time.Duration(expireTime)*time.Second, loginURL, loginPort)
+	validTokens, refLog := locations.GenerateAccessTokens(10, time.Duration(expireTime)*time.Second, loginURL, loginPort)
+	go func() {
+		for range refLog {
+			// Do nothing with reflected items
+		}
+	}()
 
 	// Initialize journal writer
 	journalWriter := make(chan journal.JournalEntry, 64)
 	go func() {
 		for entry := range journalWriter {
-			journal.WriteToJournalFile(path.Join(wd, "data"), entry)
+			journal.WriteToJournalFile(path.Join(wd, "data"), &entry)
 		}
 	}()
 

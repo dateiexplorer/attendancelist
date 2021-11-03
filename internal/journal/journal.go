@@ -20,6 +20,8 @@ import (
 	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 )
 
+const journalFileExtension = ".log"
+
 // A Journal represents a journal file with a date an severeal JournalEntries
 type Journal struct {
 	date    timeutil.Date
@@ -57,7 +59,7 @@ func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 	entries := []JournalEntry{}
 
 	// Open file
-	f, err := os.Open(path.Join(dir, date.String()+".log"))
+	f, err := os.Open(path.Join(dir, date.String()+journalFileExtension))
 	if err != nil {
 		return Journal{date, []JournalEntry{}}, fmt.Errorf("cannot open journal file: %w", err)
 	}
@@ -99,11 +101,11 @@ func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 // date will be extracted from the journalEntries timestamp itself.
 //
 // The functions returns an error if the writing operations causes an error.
-func WriteToJournalFile(dir string, e JournalEntry) error {
+func WriteToJournalFile(dir string, e *JournalEntry) error {
 	// Get wright journal file for this entry.
 	// Every day has it's own journal file.
 	date := e.Timestamp.Date()
-	f, err := os.OpenFile(path.Join(dir, date.String()+".log"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	f, err := os.OpenFile(path.Join(dir, date.String()+journalFileExtension), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("cannot write to journal file: %w", err)
 	}
@@ -128,11 +130,11 @@ func WriteToJournalFile(dir string, e JournalEntry) error {
 // each call.
 // If a Person visited a Location multiple times the Location appears only once in the
 // slice.
-func (j Journal) GetVisitedLocationsForPerson(p Person) []Location {
+func (j Journal) GetVisitedLocationsForPerson(p *Person) []Location {
 	// Use a map to guarantee that a Location appears only once in the slice.
 	m := map[Location]Location{}
 	for _, e := range j.entries {
-		if e.Person == p {
+		if e.Person == *p {
 			m[e.Location] = e.Location
 		}
 	}
