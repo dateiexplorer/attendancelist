@@ -17,6 +17,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Data
+
+var sessions = []Session{
+	{"aabbccddee", "userHash1", "DHBW Mosbach"},
+	{"ffgghhiijj", "userHash2", "Alte Mälzerei"},
+	{"kkllmmnnoo", "userHash3", "DHBW Mosbach"},
+}
+
+// Functions
+
 func TestNewSession(t *testing.T) {
 	expected := Session{"aabbccddee", "userHash", "DHBW Mosbach"}
 	actual := NewSession("aabbccddee", "userHash", "DHBW Mosbach")
@@ -63,4 +73,87 @@ func TestRunOpenSessions(t *testing.T) {
 	assert.Nil(t, value)
 
 	assert.Equal(t, journalEntryLogout, entry)
+}
+
+func TestOpenSession(t *testing.T) {
+	timestamp := timeutil.Now()
+	location := journal.Location("DHBW Mosbach")
+	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
+	hash, err := Hash(person, "privServerSecret")
+	assert.NoError(t, err)
+
+	session := NewSession("aabbccddee", hash, location)
+
+	expected := sessionQueueItem{journal.Login, timestamp, &session, &person}
+
+	sessionIDs := make(chan journal.SessionIdentifier, 1)
+	sessionIDs <- "aabbccddee"
+
+	actual := OpenSession(sessionIDs, timestamp, &person, location, "privServerSecret")
+
+	assert.Equal(t, expected, actual)
+}
+
+func TestCloseSession(t *testing.T) {
+	timestamp := timeutil.Now()
+	location := journal.Location("DHBW Mosbach")
+	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
+	hash, err := Hash(person, "privServerSecret")
+	assert.NoError(t, err)
+
+	session := NewSession("aabbccddee", hash, location)
+
+	expected := sessionQueueItem{journal.Logout, timestamp, &session, &person}
+
+	actual := CloseSession(timestamp, &session, &person)
+
+	assert.Equal(t, expected, actual)
+}
+
+func TestGetSessionForUser(t *testing.T) {
+	openSessions := new(OpenSessions)
+
+	for i := 0; i < len(sessions); i++ {
+		openSessions.Store(sessions[i].UserHash, &sessions[i])
+	}
+
+	actual, ok := openSessions.GetSessionForUser("userHash1")
+
+	assert.True(t, ok)
+	assert.Equal(t, &sessions[0], actual)
+}
+
+func TestGetSessionForUserNotFound(t *testing.T) {
+	openSessions := new(OpenSessions)
+
+	for i := 0; i < len(sessions); i++ {
+		openSessions.Store(sessions[i].UserHash, &sessions[i])
+	}
+
+	actual, ok := openSessions.GetSessionForUser("notFound")
+
+	assert.False(t, ok)
+	assert.Nil(t, actual)
+}
+
+func TestRunSessionManager(t *testing.T) {
+	journalWriter := make(chan journal.JournalEntry)
+	openSessions, sessionQueueItem, sessionIdentifier := RunSessionManager(journalWriter, 10)
+
+	timestamp := timeutil.Now()
+	location := journal.Location("DHBW Mosbach")
+	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
+	hash, err := Hash(person, "privServerSecret")
+	assert.NoError(t, err)
+
+	sessionQueueItem <- OpenSession(sessionIdentifier, timestamp, &person, location, "privServerSecret")
+	entry := <-journalWriter
+
+	value, ok := openSessions.Load(hash)
+	assert.True(t, ok)
+
+	actual := value.(*Session)
+	assert.Equal(t, entry.Session, actual.ID)
+	assert.Equal(t, entry.Location, actual.Location)
+	assert.Equal(t, hash, actual.UserHash)
 }

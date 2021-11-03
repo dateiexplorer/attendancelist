@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/dateiexplorer/attendancelist/internal/journal"
+	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 	"github.com/dateiexplorer/attendancelist/internal/web"
 )
 
@@ -185,7 +186,7 @@ func main() {
 			if userSession, ok := openSessions.GetSessionForUser(hash); ok {
 				if userSession.Location == validTokenRes.Token.Location {
 					// Same location => perform logout
-					sessionQueue <- web.CloseSession(userSession, userCookie.Person)
+					sessionQueue <- web.CloseSession(timeutil.Now(), userSession, userCookie.Person)
 					t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "logout.html")))
 					t.Execute(w, validTokenRes.Token.Location)
 					return
@@ -250,10 +251,10 @@ func main() {
 			// Token is valid, Check if session exists
 			// If UserSession exists, perform first logout and login afterwards
 			if userSession, ok := openSessions.GetSessionForUser(hash); ok {
-				sessionQueue <- web.CloseSession(userSession, &person)
+				sessionQueue <- web.CloseSession(timeutil.Now(), userSession, &person)
 			}
 
-			sessionQueue <- web.OpenSession(sessionIDs, &person, location, privServerSecret)
+			sessionQueue <- web.OpenSession(sessionIDs, timeutil.Now(), &person, location, privServerSecret)
 			t := template.Must(template.ParseFiles(path.Join(wd, "web", "templates", "loginservice", "login.html")))
 			t.Execute(w, location)
 		}

@@ -117,14 +117,14 @@ type sessionQueueItem struct {
 
 // OpenSession returns a sessionQueueItem which initiates to open a new Session
 // for the specific person associated with the location loc.
-func OpenSession(sessionIDs <-chan journal.SessionIdentifier, person *journal.Person, loc journal.Location, privkey string) sessionQueueItem {
+func OpenSession(sessionIDs <-chan journal.SessionIdentifier, timestamp timeutil.Timestamp, person *journal.Person, loc journal.Location, privkey string) sessionQueueItem {
 	hash, _ := Hash(*person, privkey)
 	session := NewSession(<-sessionIDs, hash, loc)
-	return sessionQueueItem{journal.Login, timeutil.Now(), &session, person}
+	return sessionQueueItem{journal.Login, timestamp, &session, person}
 }
 
 // CloseSession returns a sessionQueueItem which initiates to close the
 // given session.
-func CloseSession(session *Session, person *journal.Person) sessionQueueItem {
-	return sessionQueueItem{journal.Logout, timeutil.Now(), session, person}
+func CloseSession(timestamp timeutil.Timestamp, session *Session, person *journal.Person) sessionQueueItem {
+	return sessionQueueItem{journal.Logout, timestamp, session, person}
 }
