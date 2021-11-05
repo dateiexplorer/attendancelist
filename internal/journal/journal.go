@@ -28,6 +28,11 @@ type Journal struct {
 	entries []JournalEntry
 }
 
+// Entries returns a slice of all JournalEntries for this Journal.
+func (j *Journal) Entries() []JournalEntry {
+	return j.entries
+}
+
 // ReadJournal reads data from a file for a specific date on the filesystem and
 // returns a Journal.
 // The filename must be formatted as "yyyy-MM-dd.log", otherwise the ReadJournal
@@ -88,7 +93,7 @@ func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 		location := Location(values[3])
 		person := Person{values[4], values[5], Address{values[6], values[7], values[8], values[9]}}
 
-		entry := JournalEntry{timestamp, SessionIdentifier(id), Event(action), location, person}
+		entry := JournalEntry{timestamp, id, Event(action), location, person}
 		entries = append(entries, entry)
 	}
 
@@ -113,7 +118,7 @@ func WriteToJournalFile(dir string, e *JournalEntry) error {
 	defer f.Close()
 
 	// Write to journal file
-	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.Timestamp, e.Session, e.Event, e.Location, e.Person.FirstName, e.Person.LastName,
+	s := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n", e.Timestamp, e.SessionID, e.Event, e.Location, e.Person.FirstName, e.Person.LastName,
 		e.Person.Address.Street, e.Person.Address.Number, e.Person.Address.ZipCode, e.Person.Address.City)
 	_, err = f.WriteString(s)
 	if err != nil {
@@ -157,16 +162,16 @@ func (j Journal) GetVisitedLocationsForPerson(p *Person) []Location {
 // two AttendanceEntries with the same Login timestamp are always appears in the
 // same order.
 func (j Journal) GetAttendanceListForLocation(l Location) AttendanceList {
-	m := map[SessionIdentifier]AttendanceEntry{}
+	m := map[string]AttendanceEntry{}
 	for _, e := range j.entries {
 		if e.Location == l {
 			switch e.Event {
 			case Login:
-				m[e.Session] = NewAttendanceEntry(e.Person, e.Timestamp, timeutil.InvalidTimestamp)
+				m[e.SessionID] = NewAttendanceEntry(e.Person, e.Timestamp, timeutil.InvalidTimestamp)
 			case Logout:
-				if entry, ok := m[e.Session]; ok {
+				if entry, ok := m[e.SessionID]; ok {
 					entry.logout = e.Timestamp
-					m[e.Session] = entry
+					m[e.SessionID] = entry
 				}
 			}
 		}
@@ -186,26 +191,18 @@ func (j Journal) GetAttendanceListForLocation(l Location) AttendanceList {
 	return list
 }
 
-func (j Journal) Entries() []JournalEntry {
-	return j.entries
-}
-
-// A sessionIdentifier identifies which JournalEntries match together.
-// This is important since the journal file documents the login and logout for a
-// user in two separate JournalEntries.
-type SessionIdentifier string
-
 // A JournalEntry represents one row in the Journal.
 type JournalEntry struct {
 	Timestamp timeutil.Timestamp `json:"timestamp"`
-	Session   SessionIdentifier  `json:"session"`
+	SessionID string             `json:"sessionId"`
 	Event     Event              `json:"event"`
 	Location  Location           `json:"location"`
 	Person    Person             `json:"person"`
 }
 
-func NewJournalEntry(timestamp timeutil.Timestamp, session SessionIdentifier, event Event, location Location, person Person) JournalEntry {
-	return JournalEntry{timestamp, session, event, location, person}
+// NewJournalEntry returns a new JournalEntry with the given parameters.
+func NewJournalEntry(timestamp timeutil.Timestamp, sessionID string, event Event, location Location, person Person) JournalEntry {
+	return JournalEntry{timestamp, sessionID, event, location, person}
 }
 
 // An Event represents the reason why a new JournalEntry was written into the

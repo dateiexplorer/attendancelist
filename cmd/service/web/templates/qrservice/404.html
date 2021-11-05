@@ -13,7 +13,7 @@
 		<p>The requested path doesn't exists. Maybe the location doesn't exists?</p>
 		<p>Please select a location for which you want to show the access code from the list below:</p>
 		<ul>
-			{{range .Locations}}
+			{{range .Slice}}
 			<li><a href="/{{.}}">{{.}}<a></li>
 			{{end}}
 		</ul>

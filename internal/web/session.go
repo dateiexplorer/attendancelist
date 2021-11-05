@@ -27,24 +27,26 @@ import (
 //
 // The function returns a OpenSession map a read only channel for sessionQueueItems
 // and a random SessionIdentifier generator.
-func RunSessionManager(journalWriter chan<- journal.JournalEntry, idLength int) (*OpenSessions, chan<- sessionQueueItem, <-chan journal.SessionIdentifier) {
+func RunSessionManager(journalWriter chan<- journal.JournalEntry, idLength int) (*OpenSessions, chan<- SessionQueueItem, <-chan string) {
 	maxConcurrentRequests := cap(journalWriter)
 
 	openSessions := new(OpenSessions)
-	sessionQueue := make(chan sessionQueueItem, maxConcurrentRequests)
-
-	randomIDs := RandIDGenerator(idLength, maxConcurrentRequests)
-	sessionIDs := make(chan journal.SessionIdentifier, maxConcurrentRequests)
-
-	// Convert string to journal.SessionIdentifier
+	sessionQueue := make(chan SessionQueueItem, maxConcurrentRequests)
+	ids := RandIDGenerator(idLength, maxConcurrentRequests)
 	go func() {
-		for id := range randomIDs {
-			sessionIDs <- journal.SessionIdentifier(id)
+		for item := range sessionQueue {
+			switch item.action {
+			case journal.Login:
+				openSessions.Store(item.session.UserHash, item.session)
+			case journal.Logout:
+				openSessions.Delete(item.session.UserHash)
+			}
+
+			// Write the event to the jorunalWriter.
+			journalWriter <- journal.NewJournalEntry(item.timestamp, item.session.ID, item.action, item.session.Location, *item.person)
 		}
 	}()
-
-	openSessions.run(sessionQueue, journalWriter)
-	return openSessions, sessionQueue, sessionIDs
+	return openSessions, sessionQueue, ids
 }
 
 // An OpenSessions map holds all open Sessions.
@@ -72,59 +74,39 @@ func (m *OpenSessions) GetSessionForUser(userHash string) (session *Session, ok 
 	return session, ok
 }
 
-// run starts an internal session manager in a separate goroutine, which takes the
-// sessionQueueItems from the sessinQueueItem channel and performs the specified action.
-// Furthermore the function writes each event to the jorunalWriter channel, which can
-// be used to log session events such as new logins or logouts.
-func (m *OpenSessions) run(sessionQueue <-chan sessionQueueItem, journalWriter chan<- journal.JournalEntry) {
-	go func() {
-		for item := range sessionQueue {
-			switch item.action {
-			case journal.Login:
-				m.Store(item.session.UserHash, item.session)
-			case journal.Logout:
-				m.Delete(item.session.UserHash)
-			}
-
-			// Write the event to the jorunalWriter.
-			journalWriter <- journal.NewJournalEntry(item.timestamp, item.session.ID, item.action, item.session.Location, *item.person)
-		}
-	}()
-}
-
 // A Session represents a user session with a unique random identifier, a unique
 // user hash value and an associated Location
 type Session struct {
-	ID       journal.SessionIdentifier
+	ID       string
 	UserHash string
 	Location journal.Location
 }
 
 // NewSession returns a new Session struct.
-func NewSession(id journal.SessionIdentifier, userHash string, loc journal.Location) Session {
+func NewSession(id string, userHash string, loc journal.Location) Session {
 	return Session{id, userHash, loc}
 }
 
-// A sessionQueueItem represents a Item which is consumed by the session manager.
+// A SessionQueueItem represents a Item which is consumed by the session manager.
 // It is private and only accessible throw the public functions OpenSession and
 // CloseSession.
-type sessionQueueItem struct {
+type SessionQueueItem struct {
 	action    journal.Event
 	timestamp timeutil.Timestamp
 	session   *Session
 	person    *journal.Person
 }
 
-// OpenSession returns a sessionQueueItem which initiates to open a new Session
+// OpenSession returns a SessionQueueItem which initiates to open a new Session
 // for the specific person associated with the location loc.
-func OpenSession(sessionIDs <-chan journal.SessionIdentifier, timestamp timeutil.Timestamp, person *journal.Person, loc journal.Location, privkey string) sessionQueueItem {
+func OpenSession(sessionIDs <-chan string, timestamp timeutil.Timestamp, person *journal.Person, loc journal.Location, privkey string) SessionQueueItem {
 	hash, _ := Hash(*person, privkey)
 	session := NewSession(<-sessionIDs, hash, loc)
-	return sessionQueueItem{journal.Login, timestamp, &session, person}
+	return SessionQueueItem{journal.Login, timestamp, &session, person}
 }
 
 // CloseSession returns a sessionQueueItem which initiates to close the
 // given session.
-func CloseSession(timestamp timeutil.Timestamp, session *Session, person *journal.Person) sessionQueueItem {
-	return sessionQueueItem{journal.Logout, timestamp, session, person}
+func CloseSession(timestamp timeutil.Timestamp, session *Session, person *journal.Person) SessionQueueItem {
+	return SessionQueueItem{journal.Logout, timestamp, session, person}
 }

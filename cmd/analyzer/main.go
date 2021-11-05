@@ -138,7 +138,7 @@ func doAction(action Action, journalDir string, journalDate timeutil.Date) error
 			return nil
 		}
 
-		locs := j.GetVisitedLocationsForPerson(persons[0])
+		locs := j.GetVisitedLocationsForPerson(&persons[0])
 		fmt.Println(locs)
 	case GetAttendanceListForLocation:
 		list := j.GetAttendanceListForLocation(journal.Location(location))
