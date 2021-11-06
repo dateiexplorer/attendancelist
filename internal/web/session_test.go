@@ -29,131 +29,139 @@ var sessions = []Session{
 
 func TestNewSession(t *testing.T) {
 	expected := Session{"aabbccddee", "userHash", "DHBW Mosbach"}
-	actual := NewSession("aabbccddee", "userHash", "DHBW Mosbach")
+	session := NewSession("aabbccddee", "userHash", "DHBW Mosbach")
 
-	assert.Equal(t, expected, actual)
+	assert.Equal(t, expected, session)
 }
 
-func TestRunOpenSessions(t *testing.T) {
-	openSessions := new(OpenSessions)
+// func TestRunOpenSessions(t *testing.T) {
+// 	openSessions := new(OpenSessions)
 
-	sessionQueue := make(chan sessionQueueItem)
-	journalWriter := make(chan journal.JournalEntry)
+// 	sessionQueue := make(chan sessionQueueItem)
+// 	journalWriter := make(chan journal.JournalEntry)
 
-	// Run goroutine in background
-	openSessions.run(sessionQueue, journalWriter)
+// 	// Run goroutine in background
+// 	openSessions.run(sessionQueue, journalWriter)
 
-	timestamp := timeutil.Now()
-	location := journal.Location("DHBW Mosbach")
-	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
-	session := NewSession("aabbccddee", "hash", location)
+// 	timestamp := timeutil.Now()
+// 	location := journal.Location("DHBW Mosbach")
+// 	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
+// 	session := NewSession("aabbccddee", "hash", location)
 
-	// Open Session
-	sessionQueue <- sessionQueueItem{journal.Login, timestamp, &session, &person}
+// 	// Open Session
+// 	sessionQueue <- sessionQueueItem{journal.Login, timestamp, &session, &person}
 
-	// If journalWriter receives entry, value is stored
-	entry := <-journalWriter
-	journalEntryLogin := journal.NewJournalEntry(timestamp, session.ID, journal.Login, location, person)
-	assert.Equal(t, journalEntryLogin, entry)
+// 	// If journalWriter receives entry, value is stored
+// 	entry := <-journalWriter
+// 	journalEntryLogin := journal.NewJournalEntry(timestamp, session.ID, journal.Login, location, person)
+// 	assert.Equal(t, journalEntryLogin, entry)
 
-	value, ok := openSessions.Load(session.UserHash)
-	assert.True(t, ok)
+// 	value, ok := openSessions.Load(session.UserHash)
+// 	assert.True(t, ok)
 
-	actual, ok := value.(*Session)
-	assert.True(t, ok)
-	assert.Equal(t, session, *actual)
+// 	actual, ok := value.(*Session)
+// 	assert.True(t, ok)
+// 	assert.Equal(t, session, *actual)
 
-	// Close Session
-	sessionQueue <- sessionQueueItem{journal.Logout, timestamp, &session, &person}
-	entry = <-journalWriter
-	journalEntryLogout := journal.NewJournalEntry(timestamp, session.ID, journal.Logout, location, person)
+// 	// Close Session
+// 	sessionQueue <- sessionQueueItem{journal.Logout, timestamp, &session, &person}
+// 	entry = <-journalWriter
+// 	journalEntryLogout := journal.NewJournalEntry(timestamp, session.ID, journal.Logout, location, person)
 
-	value, ok = openSessions.Load(session.UserHash)
-	assert.False(t, ok)
-	assert.Nil(t, value)
+// 	value, ok = openSessions.Load(session.UserHash)
+// 	assert.False(t, ok)
+// 	assert.Nil(t, value)
 
-	assert.Equal(t, journalEntryLogout, entry)
-}
+// 	assert.Equal(t, journalEntryLogout, entry)
+// }
 
 func TestOpenSession(t *testing.T) {
-	timestamp := timeutil.Now()
-	location := journal.Location("DHBW Mosbach")
-	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
-	hash, err := Hash(person, "privServerSecret")
+	ts := timeutil.Now()
+	loc := journal.Location("DHBW Mosbach")
+	p := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
+	hash, err := Hash(p, "privServerSecret")
 	assert.NoError(t, err)
 
-	session := NewSession("aabbccddee", hash, location)
+	session := NewSession("aabbccddee", hash, loc)
+	expected := SessionQueueItem{journal.Login, ts, &session, &p}
 
-	expected := sessionQueueItem{journal.Login, timestamp, &session, &person}
-
-	sessionIDs := make(chan journal.SessionIdentifier, 1)
+	sessionIDs := make(chan string, 1)
 	sessionIDs <- "aabbccddee"
 
-	actual := OpenSession(sessionIDs, timestamp, &person, location, "privServerSecret")
-
+	actual := OpenSession(sessionIDs, ts, &p, loc, "privServerSecret")
 	assert.Equal(t, expected, actual)
 }
 
 func TestCloseSession(t *testing.T) {
-	timestamp := timeutil.Now()
-	location := journal.Location("DHBW Mosbach")
-	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
-	hash, err := Hash(person, "privServerSecret")
+	ts := timeutil.Now()
+	loc := journal.Location("DHBW Mosbach")
+	p := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
+	hash, err := Hash(p, "privServerSecret")
 	assert.NoError(t, err)
 
-	session := NewSession("aabbccddee", hash, location)
+	session := NewSession("aabbccddee", hash, loc)
 
-	expected := sessionQueueItem{journal.Logout, timestamp, &session, &person}
+	expected := SessionQueueItem{journal.Logout, ts, &session, &p}
 
-	actual := CloseSession(timestamp, &session, &person)
-
+	actual := CloseSession(ts, &session, &p)
 	assert.Equal(t, expected, actual)
 }
 
 func TestGetSessionForUser(t *testing.T) {
 	openSessions := new(OpenSessions)
-
 	for i := 0; i < len(sessions); i++ {
 		openSessions.Store(sessions[i].UserHash, &sessions[i])
 	}
 
 	actual, ok := openSessions.GetSessionForUser("userHash1")
-
 	assert.True(t, ok)
 	assert.Equal(t, &sessions[0], actual)
 }
 
 func TestGetSessionForUserNotFound(t *testing.T) {
 	openSessions := new(OpenSessions)
-
 	for i := 0; i < len(sessions); i++ {
 		openSessions.Store(sessions[i].UserHash, &sessions[i])
 	}
 
-	actual, ok := openSessions.GetSessionForUser("notFound")
-
+	actual, ok := openSessions.GetSessionForUser("noUser")
 	assert.False(t, ok)
 	assert.Nil(t, actual)
 }
 
 func TestRunSessionManager(t *testing.T) {
 	journalWriter := make(chan journal.JournalEntry)
-	openSessions, sessionQueueItem, sessionIdentifier := RunSessionManager(journalWriter, 10)
+	openSessions, sessionQueue, sessionIdentifier := RunSessionManager(journalWriter, 10)
 
-	timestamp := timeutil.Now()
-	location := journal.Location("DHBW Mosbach")
-	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
-	hash, err := Hash(person, "privServerSecret")
+	ts := timeutil.Now()
+	loc := journal.Location("DHBW Mosbach")
+	p := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
+	hash, err := Hash(p, "privServerSecret")
 	assert.NoError(t, err)
 
-	sessionQueueItem <- OpenSession(sessionIdentifier, timestamp, &person, location, "privServerSecret")
+	// OpenSession
+	sessionQueue <- OpenSession(sessionIdentifier, ts, &p, loc, "privServerSecret")
 	entry := <-journalWriter
+	assert.Equal(t, journal.Login, entry.Event)
+	assert.Equal(t, entry.Timestamp, ts)
+	assert.Equal(t, entry.Person, p)
 
 	value, ok := openSessions.Load(hash)
 	assert.True(t, ok)
 
 	actual := value.(*Session)
-	assert.Equal(t, entry.Session, actual.ID)
+	assert.Equal(t, entry.SessionID, actual.ID)
 	assert.Equal(t, entry.Location, actual.Location)
 	assert.Equal(t, hash, actual.UserHash)
+
+	// CloseSession
+	sessionQueue <- CloseSession(ts, actual, &p)
+	entry = <-journalWriter
+	assert.Equal(t, journal.Logout, entry.Event)
+	assert.Equal(t, entry.Timestamp, ts)
+	assert.Equal(t, entry.Person, p)
+
+	value, ok = openSessions.Load(hash)
+	assert.False(t, ok)
+	assert.Nil(t, value)
 }

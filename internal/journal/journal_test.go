@@ -20,47 +20,48 @@ import (
 // Data
 
 var persons = map[string]Person{
-	"Hans Müller":            {"Hans", "Müller", Address{"Feldweg", "12", "74722", "Buchen"}},
-	"Gisela Musterfrau":      {"Gisela", "Musterfrau", Address{"Musterstraße", "10", "74821", "Mosbach"}},
-	"Max Mustermann":         {"Max", "Mustermann", Address{"Musterstraße", "20", "74821", "Mosbach"}},
-	"Anne Meier":             {"Anne", "Meier", Address{"Hauptstraße", "18", "74821", "Mosbach"}},
-	"Lieschen Müller":        {"Lieschen", "Müller", Address{"Lindenstraße", "15", "10115", "Berlin"}},
-	"Otto Normalverbraucher": {"Otto", "Normalverbraucher", Address{"Dieselstraße", "52", "70376", "Stuttgart"}},
+	"HM": {"Hans", "Müller", Address{"Feldweg", "12", "74722", "Buchen"}},
+	"GM": {"Gisela", "Musterfrau", Address{"Musterstraße", "10", "74821", "Mosbach"}},
+	"MM": {"Max", "Mustermann", Address{"Musterstraße", "20", "74821", "Mosbach"}},
+	"AM": {"Anne", "Meier", Address{"Hauptstraße", "18", "74821", "Mosbach"}},
+	"LM": {"Lieschen", "Müller", Address{"Lindenstraße", "15", "10115", "Berlin"}},
+	"ON": {"Otto", "Normalverbraucher", Address{"Dieselstraße", "52", "70376", "Stuttgart"}},
+}
+
+var locs = map[string]Location{
+	"DH": "DHBW Mosbach",
+	"AM": "Alte Mälzerei",
 }
 
 // Functions
 
-// 8.1) Read journal file for a specific date
 func TestReadJournal(t *testing.T) {
 	expected := Journal{timeutil.NewDate(2021, 10, 15), []JournalEntry{
-		{timeutil.NewTimestamp(2021, 10, 15, 6, 20, 13), "d61ec70b78628e15", Login, "DHBW Mosbach", persons["Hans Müller"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 9, 15, 20), "989ce491d5df53c9", Login, "DHBW Mosbach", persons["Gisela Musterfrau"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 12, 15, 30), "f797f342aebab436", Login, "DHBW Mosbach", persons["Max Mustermann"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 12, 17, 20), "1ce7549a51133e9f", Login, "DHBW Mosbach", persons["Anne Meier"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 13, 30, 0), "68e7faee906ffd4c", Login, "DHBW Mosbach", persons["Lieschen Müller"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 13, 40, 10), "d61ec70b78628e15", Logout, "DHBW Mosbach", persons["Hans Müller"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 13, 40, 11), "5faacdf0e6e7b44a", Login, "Alte Mälzerei", persons["Hans Müller"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 15, 42, 23), "68e7faee906ffd4c", Logout, "DHBW Mosbach", persons["Lieschen Müller"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 16, 48, 21), "f797f342aebab436", Logout, "DHBW Mosbach", persons["Max Mustermann"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 16, 52, 0), "989ce491d5df53c9", Logout, "DHBW Mosbach", persons["Gisela Musterfrau"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 17, 15, 22), "1ce7549a51133e9f", Logout, "DHBW Mosbach", persons["Anne Meier"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 17, 32, 45), "848dc86c0b5e62a0", Login, "Alte Mälzerei", persons["Otto Normalverbraucher"]},
-		{timeutil.NewTimestamp(2021, 10, 15, 19, 15, 12), "848dc86c0b5e62a0", Logout, "Alte Mälzerei", persons["Otto Normalverbraucher"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 6, 20, 13), "d61ec70b78628e15", Login, locs["DH"], persons["HM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 9, 15, 20), "989ce491d5df53c9", Login, locs["DH"], persons["GM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 12, 15, 30), "f797f342aebab436", Login, locs["DH"], persons["MM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 12, 17, 20), "1ce7549a51133e9f", Login, locs["DH"], persons["AM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 13, 30, 0), "68e7faee906ffd4c", Login, locs["DH"], persons["LM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 13, 40, 10), "d61ec70b78628e15", Logout, locs["DH"], persons["HM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 13, 40, 11), "5faacdf0e6e7b44a", Login, locs["AM"], persons["HM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 15, 42, 23), "68e7faee906ffd4c", Logout, locs["DH"], persons["LM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 16, 48, 21), "f797f342aebab436", Logout, locs["DH"], persons["MM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 16, 52, 0), "989ce491d5df53c9", Logout, locs["DH"], persons["GM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 17, 15, 22), "1ce7549a51133e9f", Logout, locs["DH"], persons["AM"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 17, 32, 45), "848dc86c0b5e62a0", Login, locs["AM"], persons["ON"]},
+		{timeutil.NewTimestamp(2021, 10, 15, 19, 15, 12), "848dc86c0b5e62a0", Logout, locs["AM"], persons["ON"]},
 	}}
 
-	actual, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
-
+	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
-	assert.Equal(t, expected, actual)
+	assert.Equal(t, expected, journal)
 }
 
 func TestReadNotExistingJournal(t *testing.T) {
 	expected := Journal{timeutil.NewDate(2020, 9, 4), []JournalEntry{}}
-
-	actual, err := ReadJournal("testdata", timeutil.NewDate(2020, 9, 4))
-
+	journal, err := ReadJournal("testdata", timeutil.NewDate(2020, 9, 4))
 	assert.Error(t, err)
-	assert.Equal(t, expected, actual)
+	assert.Equal(t, expected, journal)
 }
 
 func TestReadMalformedJournal(t *testing.T) {
@@ -71,14 +72,12 @@ func TestReadMalformedJournal(t *testing.T) {
 
 	for _, journal := range expected {
 		actual, err := ReadJournal("testdata", journal.date)
-
 		assert.NotErrorIs(t, err, os.ErrNotExist)
 		assert.Error(t, err)
 		assert.Equal(t, journal, actual)
 	}
 }
 
-// 8.2) Get all locations for a specific person
 func TestGetVisitedLocationsForPerson(t *testing.T) {
 	expected := []Location{
 		"DHBW Mosbach",
@@ -86,10 +85,9 @@ func TestGetVisitedLocationsForPerson(t *testing.T) {
 
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
+	p := persons["MM"]
 
-	p := persons["Max Mustermann"]
 	actual := journal.GetVisitedLocationsForPerson(&p)
-
 	assert.NotNil(t, actual)
 	assert.Equal(t, expected, actual)
 }
@@ -102,11 +100,11 @@ func TestGetVisitedLocationForPersonMultipleLocations(t *testing.T) {
 
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
+	p := persons["HM"]
 
-	p := persons["Hans Müller"]
 	actual := journal.GetVisitedLocationsForPerson(&p)
-
 	assert.NotNil(t, actual)
+
 	for _, location := range expected {
 		assert.Contains(t, actual, location)
 	}
@@ -114,39 +112,34 @@ func TestGetVisitedLocationForPersonMultipleLocations(t *testing.T) {
 
 func TestGetVisitedLocationsForPersonNotExistingPerson(t *testing.T) {
 	expected := []Location{}
-
 	person := Person{"Susi", "Sorglos", Address{"Musterstraße", "20", "72327", "Musterstadt"}}
+
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
 
 	actual := journal.GetVisitedLocationsForPerson(&person)
-
 	assert.Equal(t, expected, actual)
 }
 
-// 8.3) Get attendance list for a specific location as CSV
 func TestGetAttendanceEntriesForLocation(t *testing.T) {
 	expected := AttendanceList{
-		NewAttendanceEntry(persons["Hans Müller"], timeutil.NewTimestamp(2021, 10, 15, 13, 40, 11), timeutil.InvalidTimestamp),
-		NewAttendanceEntry(persons["Otto Normalverbraucher"], timeutil.NewTimestamp(2021, 10, 15, 17, 32, 45), timeutil.NewTimestamp(2021, 10, 15, 19, 15, 12)),
+		NewAttendanceEntry(persons["HM"], timeutil.NewTimestamp(2021, 10, 15, 13, 40, 11), timeutil.InvalidTimestamp),
+		NewAttendanceEntry(persons["ON"], timeutil.NewTimestamp(2021, 10, 15, 17, 32, 45), timeutil.NewTimestamp(2021, 10, 15, 19, 15, 12)),
 	}
 
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
 
-	actual := journal.GetAttendanceListForLocation("Alte Mälzerei")
-
+	actual := journal.GetAttendanceListForLocation(locs["AM"])
 	assert.Equal(t, expected, actual)
 }
 
 func TestGetAttendanceListForLocationNotExistingLocation(t *testing.T) {
 	expected := AttendanceList{}
-
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)
 
 	actual := journal.GetAttendanceListForLocation("Night Club")
-
 	assert.Equal(t, expected, actual)
 }
 
@@ -157,8 +150,8 @@ func TestNextEntry(t *testing.T) {
 	}
 
 	list := AttendanceList{
-		NewAttendanceEntry(persons["Hans Müller"], timeutil.NewTimestamp(2021, 10, 15, 13, 40, 11), timeutil.InvalidTimestamp),
-		NewAttendanceEntry(persons["Otto Normalverbraucher"], timeutil.NewTimestamp(2021, 10, 15, 17, 32, 45), timeutil.NewTimestamp(2021, 10, 15, 19, 15, 12)),
+		NewAttendanceEntry(persons["HM"], timeutil.NewTimestamp(2021, 10, 15, 13, 40, 11), timeutil.InvalidTimestamp),
+		NewAttendanceEntry(persons["ON"], timeutil.NewTimestamp(2021, 10, 15, 17, 32, 45), timeutil.NewTimestamp(2021, 10, 15, 19, 15, 12)),
 	}
 
 	counter := 0
@@ -172,28 +165,19 @@ func TestNextEntry(t *testing.T) {
 
 func TestHeader(t *testing.T) {
 	expected := []string{"FirstName", "LastName", "Street", "Number", "ZipCode", "City", "Login", "Logout"}
-
 	list := AttendanceList{}
 	actual := list.Header()
-
 	assert.Equal(t, expected, actual)
 }
 
 func TestNewPerson(t *testing.T) {
-	expected := Person{"Max", "Mustermann", Address{"Musterstraße", "20", "74821", "Mosbach"}}
-
-	actual := NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
-
-	assert.Equal(t, expected, actual)
+	p := NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
+	assert.Equal(t, persons["MM"], p)
 }
 
-// 7.1) Write every login an logout to a journal file
-// 7.3) Create a journal file for every day
-// 7.4) Writee all logins and logouts for all days in one journal file for a day.
 func TestWriteToJournalFile(t *testing.T) {
 	timestamp := timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0)
-
-	expected := JournalEntry{timestamp, "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"]}
+	expected := JournalEntry{timestamp, "aabbccddeeff", Login, locs["DH"], persons["MM"]}
 
 	err := WriteToJournalFile("testdata", &expected)
 	assert.NoError(t, err)
@@ -203,19 +187,17 @@ func TestWriteToJournalFile(t *testing.T) {
 
 	actual := journal.entries
 	assert.Equal(t, 1, len(actual))
-
 	assert.Equal(t, expected, actual[0])
 
-	err = os.Remove(path.Join("testdata", timestamp.Date().String()+".log"))
+	err = os.Remove(path.Join("testdata", timestamp.Date().String()+journalFileExtension))
 	assert.NoError(t, err)
 }
 
 func TestWriteToJournalFileAppendEntry(t *testing.T) {
 	date := timeutil.NewDate(2021, 10, 16)
-
 	expected := []JournalEntry{
-		{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"]},
-		{timeutil.NewTimestamp(2021, 10, 16, 17, 20, 0), "aabbccddeeff", Logout, "DHBW Mosbach", persons["Max Mustermann"]},
+		{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, locs["DH"], persons["MM"]},
+		{timeutil.NewTimestamp(2021, 10, 16, 17, 20, 0), "aabbccddeeff", Logout, locs["DH"], persons["MM"]},
 	}
 
 	for _, e := range expected {
@@ -228,29 +210,25 @@ func TestWriteToJournalFileAppendEntry(t *testing.T) {
 
 	actual := journal.entries
 	assert.Equal(t, 2, len(actual))
-
 	assert.Equal(t, expected, actual)
 
-	err = os.Remove(path.Join("testdata", date.String()+".log"))
+	err = os.Remove(path.Join("testdata", date.String()+journalFileExtension))
 	assert.NoError(t, err)
 }
 
 func TestEntries(t *testing.T) {
 	expected := []JournalEntry{
-		{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"]},
-		{timeutil.NewTimestamp(2021, 10, 16, 17, 20, 0), "aabbccddeeff", Logout, "DHBW Mosbach", persons["Max Mustermann"]},
+		{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, locs["DH"], persons["MM"]},
+		{timeutil.NewTimestamp(2021, 10, 16, 17, 20, 0), "aabbccddeeff", Logout, locs["DH"], persons["MM"]},
 	}
 
 	journal := Journal{timeutil.NewDate(2021, 10, 16), expected}
 	actual := journal.Entries()
-
 	assert.Equal(t, expected, actual)
 }
 
 func TestNewJournalEntry(t *testing.T) {
-	expected := JournalEntry{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"]}
-
-	actual := NewJournalEntry(timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, "DHBW Mosbach", persons["Max Mustermann"])
-
+	expected := JournalEntry{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, locs["DH"], persons["MM"]}
+	actual := NewJournalEntry(timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, locs["DH"], persons["MM"])
 	assert.Equal(t, expected, actual)
 }

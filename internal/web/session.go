@@ -46,6 +46,7 @@ func RunSessionManager(journalWriter chan<- journal.JournalEntry, idLength int) 
 			journalWriter <- journal.NewJournalEntry(item.timestamp, item.session.ID, item.action, item.session.Location, *item.person)
 		}
 	}()
+
 	return openSessions, sessionQueue, ids
 }
 

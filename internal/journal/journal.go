@@ -20,7 +20,7 @@ import (
 	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 )
 
-const journalFileExtension = ".log"
+const journalFileExtension = ".journal"
 
 // A Journal represents a journal file with a date an severeal JournalEntries
 type Journal struct {
@@ -62,29 +62,24 @@ func (j *Journal) Entries() []JournalEntry {
 // contains the date and an empty slice of JournalEntries.
 func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 	entries := []JournalEntry{}
-
 	// Open file
 	f, err := os.Open(path.Join(dir, date.String()+journalFileExtension))
 	if err != nil {
 		return Journal{date, []JournalEntry{}}, fmt.Errorf("cannot open journal file: %w", err)
 	}
-
 	defer f.Close()
 
 	// Scan every line.
 	scanner := bufio.NewScanner(f)
 	scanner.Split(bufio.ScanLines)
-
 	for i := 0; scanner.Scan(); i++ {
 		values := strings.Split(scanner.Text(), ",")
-
 		timestamp, err := timeutil.ParseTimestamp(values[0])
 		if err != nil {
 			return Journal{date, []JournalEntry{}}, fmt.Errorf("cannot parse timestamp of journal file on line %v: %w", i, err)
 		}
 
 		id := values[1]
-
 		action, err := strconv.Atoi(values[2])
 		if err != nil {
 			return Journal{date, []JournalEntry{}}, fmt.Errorf("cannot parse action of journal file on line %v: %w", i, err)
@@ -92,7 +87,6 @@ func ReadJournal(dir string, date timeutil.Date) (Journal, error) {
 
 		location := Location(values[3])
 		person := Person{values[4], values[5], Address{values[6], values[7], values[8], values[9]}}
-
 		entry := JournalEntry{timestamp, id, Event(action), location, person}
 		entries = append(entries, entry)
 	}
@@ -114,7 +108,6 @@ func WriteToJournalFile(dir string, e *JournalEntry) error {
 	if err != nil {
 		return fmt.Errorf("cannot write to journal file: %w", err)
 	}
-
 	defer f.Close()
 
 	// Write to journal file
@@ -252,12 +245,10 @@ func (a AttendanceList) NextEntry() <-chan []string {
 			if e.login != timeutil.InvalidTimestamp {
 				login = e.login.Clock()
 			}
-
 			logout := ""
 			if e.logout != timeutil.InvalidTimestamp {
 				logout = e.logout.Clock()
 			}
-
 			entries <- []string{e.person.FirstName, e.person.LastName,
 				e.person.Address.Street, e.person.Address.Number, e.person.Address.ZipCode, e.person.Address.City,
 				login, logout}

@@ -78,8 +78,9 @@ func (m *ValidTokens) update(timestamp time.Time, exp time.Duration) {
 
 		m.internal.Delete(id)
 		if t.Valid > 0 {
-			m.internal.Store(t.ID, t.refresh(timestamp, exp))
+			m.internal.Store(id, t.refresh(timestamp, exp))
 		}
+
 		return true
 	})
 }
@@ -92,6 +93,7 @@ func (m *ValidTokens) GetAll() []*AccessToken {
 		tokens = append(tokens, token)
 		return true
 	})
+
 	return tokens
 }
 
@@ -111,9 +113,11 @@ func (m *ValidTokens) GetCurrentForLocation(loc journal.Location) (token *Access
 			ok = true
 			return false
 		}
+
 		ok = false
 		return true
 	})
+
 	return token, ok
 }
 
@@ -139,8 +143,8 @@ func (m *ValidTokens) GetByID(id string) (*AccessToken, bool) {
 // and QR is a byte slice which defines a QR-Code for this AccessToken.
 type AccessToken struct {
 	ID       string
-	Exp      time.Time
 	Iat      time.Time
+	Exp      time.Time
 	Valid    int
 	Location journal.Location
 	QR       []byte
@@ -148,7 +152,7 @@ type AccessToken struct {
 
 // newAccessToken returns a new AccessToken with the given attributes.
 func newAccessToken(id string, iat time.Time, exp time.Duration, valid int, loc journal.Location, url *url.URL) AccessToken {
-	token := AccessToken{ID: id, Exp: iat.Add(exp), Iat: iat, Valid: valid, Location: loc}
+	token := AccessToken{ID: id, Iat: iat, Exp: iat.Add(exp), Valid: valid, Location: loc}
 
 	qr, err := qrcode.Encode(fmt.Sprintf("%v?token=%v", url.String(), token.ID), qrcode.Medium, 256)
 	if err != nil {
@@ -175,8 +179,8 @@ func (t AccessToken) refresh(timestamp time.Time, exp time.Duration) *AccessToke
 // AccessToken.
 type jsonAccessToken struct {
 	ID       string           `json:"id"`
-	Exp      int64            `json:"exp"`
 	Iat      int64            `json:"iat"`
+	Exp      int64            `json:"exp"`
 	Valid    int              `json:"valid"`
 	Location journal.Location `json:"loc"`
 	QR       []byte           `json:"qr"`
@@ -251,7 +255,6 @@ func (l *Locations) GenerateTokens(ids <-chan string, timestamp time.Time, exp t
 		tokens = append(tokens, &t)
 	}
 
-	fmt.Println(tokens)
 	return tokens
 }
 

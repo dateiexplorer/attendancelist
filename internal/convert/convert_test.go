@@ -22,6 +22,7 @@ import (
 
 var errTest = errors.New("Test")
 
+// Create a buffer which cannot read any input
 type errorWriter struct{}
 
 func (e errorWriter) Write(b []byte) (int, error) {
@@ -32,17 +33,18 @@ func TestToCSV(t *testing.T) {
 	expected := `FirstName,LastName,Street,Number,ZipCode,City,Login,Logout
 Hans,Müller,Feldweg,12,74722,Buchen,13:40:11,
 Otto,Normalverbraucher,Dieselstraße,52,70376,Stuttgart,17:32:45,19:15:12
+Max,Mustermann,Musterstraße,20,74722,Buchen,,23:59:59
 `
-
-	// Prepare list
+	// Create attendance list
 	list := journal.AttendanceList{
 		journal.NewAttendanceEntry(journal.NewPerson("Hans", "Müller", "Feldweg", "12", "74722", "Buchen"), timeutil.NewTimestamp(2021, 10, 15, 13, 40, 11), timeutil.InvalidTimestamp),
 		journal.NewAttendanceEntry(journal.NewPerson("Otto", "Normalverbraucher", "Dieselstraße", "52", "70376", "Stuttgart"), timeutil.NewTimestamp(2021, 10, 15, 17, 32, 45), timeutil.NewTimestamp(2021, 10, 15, 19, 15, 12)),
+		journal.NewAttendanceEntry(journal.NewPerson("Max", "Mustermann", "Musterstraße", "20", "74722", "Buchen"), timeutil.InvalidTimestamp, timeutil.NewTimestamp(2021, 10, 15, 23, 59, 59)),
 	}
 
+	// Read into buffer
 	actual := new(bytes.Buffer)
 	err := ToCSV(actual, list)
-
 	assert.NoError(t, err)
 	assert.Equal(t, expected, actual.String())
 }
@@ -50,13 +52,12 @@ Otto,Normalverbraucher,Dieselstraße,52,70376,Stuttgart,17:32:45,19:15:12
 func TestEmptyAttendanceListToCSV(t *testing.T) {
 	expected := `FirstName,LastName,Street,Number,ZipCode,City,Login,Logout
 `
-
-	// Prepare list
+	// Empty attendance list
 	list := journal.AttendanceList{}
 
+	// Read into buffer
 	actual := new(bytes.Buffer)
 	err := ToCSV(actual, list)
-
 	assert.NoError(t, err)
 	assert.Equal(t, expected, actual.String())
 }
@@ -64,6 +65,5 @@ func TestEmptyAttendanceListToCSV(t *testing.T) {
 func TestToCSVFailedToWrite(t *testing.T) {
 	actual := errorWriter{}
 	err := ToCSV(actual, journal.AttendanceList{})
-
 	assert.ErrorIs(t, err, errTest)
 }

@@ -19,7 +19,7 @@ import (
 )
 
 // Represents the format of an Timestamp.
-const TimestampFormat = "2006-01-02 15:04:05"
+const TimestampFormat = "2006/01/02 15:04:05 MST"
 
 var (
 	// An invalid Timestamp
@@ -36,7 +36,7 @@ type Timestamp struct {
 	time.Time
 }
 
-// NewTimestamp returns a new Timestamp for timezone time.UTC.
+// NewTimestamp returns a new Timestamp timezone UTC.
 func NewTimestamp(year int, month time.Month, day, hour, min, sec int) Timestamp {
 	date := time.Date(year, month, day, hour, min, sec, 0, time.UTC)
 	return Timestamp{date}
@@ -102,24 +102,24 @@ func NewDate(year int, month time.Month, date int) Date {
 // returned. The InvalidDate is the 1st of January 1 to be convenient to the
 // time.Time struct from the standard library.
 func ParseDate(value string) (Date, error) {
-	values := strings.Split(value, ".")
+	values := strings.Split(value, "/")
 	if len(values) != 3 {
-		return Date{1, 1, 1}, errors.New("ParseDate: invalid length")
+		return InvalidDate, errors.New("ParseDate: invalid length")
 	}
 
-	day, err := strconv.Atoi(values[0])
+	day, err := strconv.Atoi(values[2])
 	if err != nil {
-		return Date{1, 1, 1}, fmt.Errorf("error parsing date \"%v\": cannot convert \"%v\" to int: %w", value, values[0], err)
+		return InvalidDate, fmt.Errorf("error parsing date \"%v\": cannot convert \"%v\" to int: %w", value, values[0], err)
 	}
 
 	month, err := strconv.Atoi(values[1])
 	if err != nil {
-		return Date{1, 1, 1}, fmt.Errorf("error parsing date \"%v\": cannot convert \"%v\" to int: %w", value, values[1], err)
+		return InvalidDate, fmt.Errorf("error parsing date \"%v\": cannot convert \"%v\" to int: %w", value, values[1], err)
 	}
 
-	year, err := strconv.Atoi(values[2])
+	year, err := strconv.Atoi(values[0])
 	if err != nil {
-		return Date{1, 1, 1}, fmt.Errorf("error parsing date \"%v\": cannot convert \"%v\" to int: %w", value, values[2], err)
+		return InvalidDate, fmt.Errorf("error parsing date \"%v\": cannot convert \"%v\" to int: %w", value, values[2], err)
 	}
 
 	return Date{year, time.Month(month), day}, nil

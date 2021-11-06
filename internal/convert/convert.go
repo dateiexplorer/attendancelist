@@ -27,7 +27,6 @@ type Converter interface {
 // An error returned if the data cannot be written.
 func ToCSV(w io.Writer, c Converter) error {
 	writer := csv.NewWriter(w)
-
 	writer.Write(c.Header())
 
 	for entry := range c.NextEntry() {

@@ -10,367 +10,433 @@
 package web
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
+	"path"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/dateiexplorer/attendancelist/internal/journal"
+	"github.com/skip2/go-qrcode"
+	"github.com/stretchr/testify/assert"
 )
-
-// Data
 
 var locations = Locations{[]journal.Location{"DHBW Mosbach", "Alte Mälzerei"}}
 
-// var tokens = []AccessToken{
-// 	newAccessToken("aabbccddee", time.Date(2021, 10, 28, 20, 0, 0, 0, time.UTC), time.Duration(1)*time.Second, 0, "DHBW Mosbach", "localhost", 8081),
-// 	newAccessToken("ffgghhiijj", time.Date(2021, 10, 28, 20, 0, 20, 0, time.UTC), time.Duration(1)*time.Second, 1, "DHBW Mosbach", "localhost", 8081),
-// 	newAccessToken("kkllmmnnoo", time.Date(2021, 10, 28, 20, 0, 0, 0, time.UTC), time.Duration(1)*time.Second, 1, "Alte Mälzerei", "localhost", 8081),
-// }
+func TestValidTokensAdd(t *testing.T) {
+	validTokens := new(ValidTokens)
 
-// Functions
+	// Map must be empty
+	counter := 0
+	validTokens.internal.Range(func(key, value interface{}) bool {
+		counter++
+		return true
+	})
 
-func TestGenerateTokens(t *testing.T) {
-	ids := make(chan string, 20)
-	ids <- "a"
-	ids <- "b"
-	ids <- "c"
-	ids <- "d"
-	ids <- "e"
-	ids <- "f"
-	ids <- "g"
-	ids <- "h"
-	ids <- "i"
-	ids <- "j"
-	ids <- "k"
-	ids <- "l"
-	ids <- "m"
-	ids <- "n"
-	ids <- "o"
-	ids <- "p"
-	ids <- "q"
+	assert.Equal(t, 0, counter)
 
-	url, _ := url.Parse("https://localhost/test")
+	iat := time.Now()
+	exp := iat.Add(time.Duration(5) * time.Second)
+	qr, err := qrcode.Encode("http://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
 
-	validTokens := locations.GenerateTokens(ids, time.Duration(2)*time.Second, *url)
-
-	for i := 0; i < 10; i++ {
-		time.Sleep(time.Duration(2) * time.Second)
-		validTokens.Range(func(key, value interface{}) bool {
-			t := value.(*AccessToken)
-			fmt.Println(t.Location, t.Valid)
-			return true
-		})
-		fmt.Println("------")
+	tokens := []*AccessToken{
+		{"a", iat, exp, 1, "DHBW Mosbach", qr},
+		{"b", iat, exp, 1, "Alte Mälzerei", qr},
 	}
+
+	validTokens.add(tokens)
+
+	// Tokens should be in map
+	v, ok := validTokens.internal.Load("a")
+	assert.True(t, ok)
+	token := v.(*AccessToken)
+	assert.Equal(t, tokens[0], token)
+
+	v, ok = validTokens.internal.Load("b")
+	assert.True(t, ok)
+	token = v.(*AccessToken)
+	assert.Equal(t, tokens[1], token)
+
+	// Map should contain exact 2 entries now
+	counter = 0
+	validTokens.internal.Range(func(key, value interface{}) bool {
+		counter++
+		return true
+	})
+
+	assert.Equal(t, 2, counter)
 }
 
-// func TestReadLocationsFromXML(t *testing.T) {
-// 	expected := locations
-// 	actual, err := ReadLocationsFromXML(path.Join("testdata", "locations.xml"))
-
-// 	assert.NoError(t, err)
-// 	assert.EqualValues(t, expected, actual)
-// }
-
-// func TestReadLocationFromXMLFailedRead(t *testing.T) {
-// 	expected := Locations{}
-// 	actual, err := ReadLocationsFromXML(path.Join("falsePath", " locations.xml"))
-
-// 	assert.Error(t, err)
-// 	assert.EqualValues(t, expected, actual)
-// }
-
-// func TestUnmarshalJSON(t *testing.T) {
-// 	expected := Locations{[]journal.Location{"DHBW Mosbach", "Alte Mälzerei"}}
-
-// 	var actual Locations
-// 	actual.UnmarshalJSON([]byte(`["DHBW Mosbach", "Alte Mälzerei"]`))
-
-// 	assert.Equal(t, expected, actual)
-// }
-
-// func TestUnmarshalJSONFail(t *testing.T) {
-// 	var actual Locations
-// 	err := actual.UnmarshalJSON([]byte(`["DHBW Mosbach", "Alte Mälzerei", 0]`))
-
-// 	assert.Error(t, err)
-// }
-
-// func TestNewAccessToken(t *testing.T) {
-// 	id := "aabbccddee"
-// 	iat := time.Now()
-// 	exp := iat.Add(time.Duration(10) * time.Second)
-// 	loc := locations.Locations[0]
-// 	qr, err := qrcode.Encode("localhost:8081?token=aabbccddee", qrcode.Medium, 256)
-// 	assert.NoError(t, err)
-
-// 	// Create an AccessToken which expires in 10 seconds
-// 	expected := AccessToken{id, exp, iat, 1, loc, qr}
-// 	actual := newAccessToken(id, iat, time.Duration(10)*time.Second, 1, loc, "localhost", 8081)
-
-// 	assert.Equal(t, expected, actual)
-// }
-
-// func TestQRCodeCreationFailed(t *testing.T) {
-// 	assert.Panics(t, func() {
-// 		id := strings.Repeat("a", 2311) // not more than 2332 bytes
-// 		newAccessToken(string(id), time.Now(), time.Duration(10)*time.Second, 1, locations.Locations[0], "localhost", 8081)
-// 	})
-// }
-
-// func TestMarhsalJSONAccessToken(t *testing.T) {
-// 	id := "112f073f4c"
-// 	iat := time.Now()
-// 	exp := iat.Add(time.Duration(10) * time.Second)
-// 	loc := locations.Locations[0]
-
-// 	expected := fmt.Sprintf("{\"id\":\"112f073f4c\",\"exp\":%v,\"iat\":%v,\"valid\":1,\"loc\":\"DHBW Mosbach\",\""+
-// 		"qr\":\"iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAABlBMVEX///8AAABVwtN+AAABnElEQVR42uyYsZGEMAxFxRBs"+
-// 		"SAlbCqXZpbkUStiQwON/879g4e649GatQZk9jwBZ0pdkt91228faBNpqM4ZqE4q191UoYDGzkSdUntOwHleRgBltXCdgqI/XsxxXQYF"+
-// 		"mZk+AfogM0BZjVIcEFMJTSTaK+SPsewe8IE0leVQzea+KWOfAzhUjtrBGXQtP3wBDWD+dUB9Y5gz5ofUF2BMZ1aaSIN1Mys08HK8ZAn"+
-// 		"A/4DVnHeds9AZ+vmbvgJlOE7KZchN48WpcgwGWXD023WxqErwlCgT4iX4YpZtY3/kcCKBIqj0QgJIGPnc+h30IQEMJ/UBsF5R0bg8iA"+
-// 		"CzFbWSNcsWBUthaMIAi481Qc6coqvO5TQoB8IWpObvibD3tOexDAFSchz+3Htq/qeEARrWnMFVWlr9Nap8PvGM3Dz5OsgTNFwNI38Cx"+
-// 		"0drNlwMXi7uugX1qtu3XIT9cjNWdA74D0dQMzSa0FhRAVk9bElbT+s5CAsWUvBqr2dPWaICvrzZvlOQ1aogGnDZaOnAQw+8i1jlw222"+
-// 		"3/bt9BQAA//+H9RJw44jhWwAAAABJRU5ErkJggg==\"}", exp.Unix(), iat.Unix())
-
-// 	token := newAccessToken(id, iat, time.Duration(10)*time.Second, 1, loc, "localhost", 8081)
-// 	actual, err := token.MarshalJSON()
-// 	assert.NoError(t, err)
-// 	assert.Equal(t, expected, string(actual))
-// }
-
-// func TestUnmarshalJSONAccessToken(t *testing.T) {
-// 	// Get iat and exp but with precicion of seconds
-// 	iat := time.Unix(time.Now().Unix(), 0)
-// 	exp := iat.Add(time.Duration(10) * time.Second)
-// 	qr, err := qrcode.Encode("localhost:8081?token=aabbccddee", qrcode.Medium, 256)
-// 	assert.NoError(t, err)
-
-// 	expected := AccessToken{"aabbccddee", exp, iat, 1, "DHBW Mosbach", qr}
-
-// 	json := fmt.Sprintf(`{
-// 		"id": "aabbccddee",
-// 		"exp": %v,
-// 		"iat": %v,
-// 		"valid": 1,
-// 		"loc": "DHBW Mosbach",
-// 		"qr": "%v"
-// 	}`, exp.Unix(), iat.Unix(), base64.StdEncoding.EncodeToString(qr))
-
-// 	var actual AccessToken
-// 	err = actual.UnmarshalJSON([]byte(json))
-
-// 	assert.NoError(t, err)
-// 	assert.Equal(t, expected, actual)
-// }
-
-// func TestGenerateAccessToken(t *testing.T) {
-// 	id := "aabbccddee"
-// 	iat := time.Now()
-// 	loc := locations.Locations[0]
-
-// 	// Setup channels
-// 	tokenQueue := make(chan TokenQueueItem, 1)
-// 	idGenerator := make(chan string)
-
-// 	expected := generateAccessToken(tokenQueue, idGenerator, id, iat, time.Duration(1)*time.Second, 0, loc, "localhost", 8081)
-// 	actual := <-tokenQueue
-
-// 	// Token should be added to queue
-// 	assert.Equal(t, Add, actual.action)
-// 	assert.Equal(t, expected, actual.token)
-
-// 	actual = <-tokenQueue
-
-// 	// Token should not be refreshed -> Invalidate this token
-// 	assert.Equal(t, Invalidate, actual.action)
-// 	assert.Equal(t, actual.token, expected)
-// }
-
-// func TestGenerateAccessTokenRefresh(t *testing.T) {
-// 	id := "aabbccddee"
-// 	iat := time.Now()
-// 	loc := locations.Locations[0]
-
-// 	// Setup channels
-// 	tokenQueue := make(chan TokenQueueItem, 1)
-// 	idGenerator := make(chan string, 1)
-// 	idGenerator <- "ffgghhiijj"
-
-// 	expected := generateAccessToken(tokenQueue, idGenerator, id, iat, time.Duration(1)*time.Second, 1, loc, "localhost", 8081)
-// 	actual := <-tokenQueue
-
-// 	// Token should be added to queue
-// 	assert.Equal(t, Add, actual.action)
-// 	assert.Equal(t, expected, actual.token)
-
-// 	actual = <-tokenQueue
-
-// 	// New AccessToken for same location should be created
-// 	assert.Equal(t, Add, actual.action)
-// 	assert.Equal(t, "ffgghhiijj", actual.token.ID)
-// 	assert.Equal(t, 1, actual.token.Valid)
-// 	assert.Equal(t, loc, actual.token.Location)
-
-// 	actual = <-tokenQueue
-
-// 	// Token should be invalidated
-// 	assert.Equal(t, Invalidate, actual.action)
-// 	assert.Equal(t, actual.token, expected)
-
-// 	actual = <-tokenQueue
-
-// 	// Token should be refreshed -> Valid decreased by 1
-// 	assert.Equal(t, Add, actual.action)
-// 	assert.Equal(t, id, actual.token.ID)
-// 	assert.Equal(t, 0, actual.token.Valid)
-// 	assert.Equal(t, loc, actual.token.Location)
-// 	assert.Equal(t, expected.QR, actual.token.QR)
-// }
-
-// func TestGetAll(t *testing.T) {
-// 	// Prepare validTokens
-// 	validTokens := new(ValidTokens)
-
-// 	for i := 0; i < len(tokens); i++ {
-// 		validTokens.Store(tokens[i].ID, &tokens[i])
-// 	}
-
-// 	// Get all tokens
-// 	all := validTokens.GetAll()
-
-// 	found := 0
-// 	// Check if tokens are in all.
-// 	validTokens.Range(func(key, value interface{}) bool {
-// 		val := value.(*AccessToken)
-// 		for _, token := range all {
-// 			if val.ID == token.ID {
-// 				found++
-
-// 				// Tokens must be equal
-// 				assert.Equal(t, token, val)
-// 				break
-// 			}
-// 		}
-
-// 		return true
-// 	})
-
-// 	// Found must be equal length of tokens.
-// 	// All tokens get
-// 	assert.Equal(t, len(tokens), found)
-// }
-
-// func TestGetAllEmptyMap(t *testing.T) {
-// 	validTokens := new(ValidTokens)
-// 	expected := make([]*AccessToken, 0)
-
-// 	actual := validTokens.GetAll()
-// 	assert.Equal(t, expected, actual)
-// }
-
-// func TestGetAcceessTokenForLocation(t *testing.T) {
-// 	validTokens := new(ValidTokens)
-
-// 	for i := 0; i < len(tokens); i++ {
-// 		validTokens.Store(tokens[i].ID, &tokens[i])
-// 	}
-
-// 	expected := &tokens[1]
-// 	actual, ok := validTokens.GetAccessTokenForLocation("DHBW Mosbach")
-
-// 	assert.True(t, ok)
-// 	assert.Equal(t, expected, actual)
-// }
-
-// func TestGetAcceessTokenForLocationNotFound(t *testing.T) {
-// 	validTokens := new(ValidTokens)
-
-// 	for i := 0; i < len(tokens); i++ {
-// 		validTokens.Store(tokens[i].ID, &tokens[i])
-// 	}
-
-// 	actual, ok := validTokens.GetAccessTokenForLocation("Night Club")
-
-// 	assert.False(t, ok)
-// 	assert.Nil(t, actual)
-// }
-
-// func TestRunValidTokens(t *testing.T) {
-// 	validTokens := new(ValidTokens)
-
-// 	tokenQueue := make(chan TokenQueueItem)
-// 	log := make(chan TokenQueueItem)
-
-// 	// Run goroutine in background
-// 	validTokens.run(tokenQueue, log)
-
-// 	// Add item
-// 	addItem := TokenQueueItem{Add, &tokens[0]}
-// 	tokenQueue <- addItem
-// 	reflectedItem := <-log
-
-// 	assert.Equal(t, addItem, reflectedItem)
-
-// 	value, ok := validTokens.Load(tokens[0].ID)
-// 	assert.True(t, ok)
-
-// 	actual, ok := value.(*AccessToken)
-// 	assert.True(t, ok)
-// 	assert.Equal(t, &tokens[0], actual)
-
-// 	// Remove item
-// 	invalidateItem := TokenQueueItem{Invalidate, &tokens[0]}
-
-// 	tokenQueue <- invalidateItem
-// 	reflectedItem = <-log
-
-// 	value, ok = validTokens.Load(tokens[0].ID)
-// 	assert.False(t, ok)
-// 	assert.Nil(t, value)
-// }
-
-// func TestGenerateAccessTokens(t *testing.T) {
-// 	exp := time.Duration(10) * time.Second
-// 	validTokens, log := locations.GenerateAccessTokens(10, exp, "localhost", 8081)
-
-// 	// Wait until all items are stored
-// 	for i := 0; i < len(locations.Locations); i++ {
-// 		<-log
-// 	}
-
-// 	found := 0
-// 	for _, loc := range locations.Locations {
-// 		validTokens.Range(func(key, value interface{}) bool {
-// 			val := value.(*AccessToken)
-// 			if val.Location == loc {
-// 				found++
-
-// 				// Check if token was created with valid data
-// 				assert.Equal(t, 1, val.Valid)
-// 				assert.Equal(t, exp, val.Exp.Sub(val.Iat))
-
-// 				qr, err := qrcode.Encode(fmt.Sprintf("localhost:8081?token=%v", val.ID), qrcode.Medium, 256)
-// 				assert.NoError(t, err)
-// 				assert.Equal(t, qr, val.QR)
-// 				return false
-// 			}
-
-// 			return true
-// 		})
-// 	}
-
-// 	// Check if all tokens are found
-// 	assert.Equal(t, len(locations.Locations), found)
-// }
-
-// func TestContains(t *testing.T) {
-// 	actual := locations.Contains("DHBW Mosbach")
-// 	assert.True(t, actual)
-// }
-
-// func TestContainsNotContains(t *testing.T) {
-// 	actual := locations.Contains("Night Club")
-// 	assert.False(t, actual)
-// }
+func TestValidTokensAddEmptyList(t *testing.T) {
+	validTokens := new(ValidTokens)
+
+	// Map must be empty
+	counter := 0
+	validTokens.internal.Range(func(key, value interface{}) bool {
+		counter++
+		return true
+	})
+
+	assert.Equal(t, 0, counter)
+
+	// Add empty map
+	validTokens.add([]*AccessToken{})
+
+	// Map must be empty
+	counter = 0
+	validTokens.internal.Range(func(key, value interface{}) bool {
+		counter++
+		return true
+	})
+
+	assert.Equal(t, 0, counter)
+}
+
+func TestValidTokensUpdate(t *testing.T) {
+	validTokens := new(ValidTokens)
+
+	iat := time.Now()
+	exp := iat.Add(time.Duration(5) * time.Second)
+	qr, err := qrcode.Encode("http://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	tokens := []*AccessToken{
+		{"a", iat, exp, 1, "DHBW Mosbach", qr},
+		{"b", iat, exp, 0, "Alte Mälzerei", qr},
+	}
+
+	for _, token := range tokens {
+		validTokens.internal.Store(token.ID, token)
+	}
+
+	ts := time.Now()
+	expDuration := time.Duration(5) * time.Second
+	updated := AccessToken{"a", iat, ts.Add(expDuration), 0, "DHBW Mosbach", qr}
+
+	validTokens.update(ts, expDuration)
+
+	val, ok := validTokens.internal.Load("a")
+	assert.True(t, ok)
+	token := val.(*AccessToken)
+	assert.Equal(t, updated, *token)
+
+	val, ok = validTokens.internal.Load("b")
+	assert.False(t, ok)
+	assert.Nil(t, val)
+
+	// Map contains only one element
+	counter := 0
+	validTokens.internal.Range(func(key, value interface{}) bool {
+		counter++
+		return true
+	})
+
+	assert.Equal(t, 1, counter)
+}
+
+func TestOnExpireInit(t *testing.T) {
+	validTokens := new(ValidTokens)
+	ids := make(chan string, len(locations.Slice))
+	ids <- "aabbccddee"
+	ids <- "ffgghhiijj"
+
+	ts := time.Now()
+	exp := time.Duration(5) * time.Second
+	url, err := url.Parse("https://login")
+	assert.NoError(t, err)
+
+	onExpire(validTokens, ids, &locations, ts, exp, url)
+
+	counter := 0
+	validTokens.internal.Range(func(key, value interface{}) bool {
+		id := key.(string)
+		token := value.(*AccessToken)
+
+		assert.Equal(t, id, token.ID)
+		assert.Equal(t, 1, token.Valid)
+		assert.Equal(t, ts, token.Iat)
+		assert.Equal(t, ts.Add(exp), token.Exp)
+
+		qr, err := qrcode.Encode(fmt.Sprintf("https://login?token=%v", key), qrcode.Medium, 256)
+		assert.NoError(t, err)
+		assert.Equal(t, qr, token.QR)
+
+		if id == "aabbccddee" {
+			assert.Equal(t, locations.Slice[0], token.Location)
+		}
+
+		if id == "ffgghhiijj" {
+			assert.Equal(t, locations.Slice[1], token.Location)
+		}
+
+		counter++
+		return true
+	})
+
+	assert.Equal(t, len(locations.Slice), counter)
+}
+
+func TestValidTokensGetAll(t *testing.T) {
+	validTokens := new(ValidTokens)
+
+	// Empty map returns an empty slice
+	tokens := validTokens.GetAll()
+	assert.Equal(t, 0, len(tokens))
+
+	iat := time.Now()
+	exp := iat.Add(time.Duration(5) * time.Second)
+	qr, err := qrcode.Encode("https://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	input := []*AccessToken{
+		{"a", iat, exp, 1, "DHBW Mosbach", qr},
+		{"b", iat, exp, 1, "Alte Mälzerei", qr},
+	}
+
+	for _, v := range input {
+		validTokens.internal.Store(v.ID, v)
+	}
+
+	// All items must be returned.
+	tokens = validTokens.GetAll()
+	counter := 0
+	for _, expected := range input {
+		for _, actual := range tokens {
+			if expected.ID == actual.ID {
+				assert.Equal(t, expected, actual)
+				counter++
+			}
+		}
+	}
+
+	assert.Equal(t, len(input), counter)
+}
+
+func TestValidTokensGetCurrentForLocation(t *testing.T) {
+	validTokens := new(ValidTokens)
+
+	// Prepare map
+	iat := time.Now()
+	exp := iat.Add(time.Duration(5) * time.Second)
+	qr, err := qrcode.Encode("https://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	input := []*AccessToken{
+		{"a", iat, exp, 0, "DHBW Mosbach", qr},
+		{"b", iat, exp, 1, "DHBW Mosbach", qr},
+		{"c", iat, exp, 1, "Alte Mälzerei", qr},
+	}
+
+	for _, v := range input {
+		validTokens.internal.Store(v.ID, v)
+	}
+
+	// Location exist
+	token, ok := validTokens.GetCurrentForLocation("DHBW Mosbach")
+	assert.True(t, ok)
+	assert.Equal(t, input[1], token)
+
+	// Location doesn't exist
+	token, ok = validTokens.GetCurrentForLocation("Night Club")
+	assert.False(t, ok)
+	assert.Nil(t, token)
+}
+
+func TestValidTokensGetByID(t *testing.T) {
+	validTokens := new(ValidTokens)
+
+	// Prepare map
+	iat := time.Now()
+	exp := iat.Add(time.Duration(5) * time.Second)
+	qr, err := qrcode.Encode("https://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	input := []*AccessToken{
+		{"a", iat, exp, 0, "DHBW Mosbach", qr},
+		{"b", iat, exp, 1, "Alte Mälzerei", qr},
+	}
+
+	for _, v := range input {
+		validTokens.internal.Store(v.ID, v)
+	}
+
+	// Token exists
+	token, ok := validTokens.GetByID("a")
+	assert.True(t, ok)
+	assert.Equal(t, input[0], token)
+
+	// Token doesn't exist
+	token, ok = validTokens.GetByID("c")
+	assert.False(t, ok)
+	assert.Nil(t, token)
+}
+
+func TestNewAccessToken(t *testing.T) {
+	iat := time.Now()
+	expDuration := time.Duration(5) * time.Second
+	urlStr := "https://login"
+	url, err := url.Parse(urlStr)
+	assert.NoError(t, err)
+	qr, err := qrcode.Encode(urlStr+"?token=a", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	token := AccessToken{"a", iat, iat.Add(expDuration), 1, "DHBW Mosbach", qr}
+	actual := newAccessToken("a", iat, expDuration, 1, "DHBW Mosbach", url)
+	assert.Equal(t, token, actual)
+}
+
+func TestQRCodeCreationFailed(t *testing.T) {
+	url, err := url.Parse("https://localhost:4443")
+	assert.NoError(t, err)
+	assert.Panics(t, func() {
+		id := strings.Repeat("a", 2311) // not more than 2332 bytes
+		newAccessToken(string(id), time.Now(), time.Duration(10)*time.Second, 1, "DHBW Mosbach", url)
+	})
+}
+
+func TestAccessTokenRefresh(t *testing.T) {
+	iat := time.Now()
+	expDuration := time.Duration(5) * time.Second
+	qr, err := qrcode.Encode("https://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	token := AccessToken{"a", iat, iat.Add(expDuration), 1, "DHBW Mosbach", qr}
+
+	ts := time.Now()
+	refresh := token.refresh(ts, expDuration)
+
+	// Old token should be the same as before
+	assert.Equal(t, "a", token.ID)
+	assert.Equal(t, iat, token.Iat)
+	assert.Equal(t, iat.Add(expDuration), token.Exp)
+	assert.Equal(t, journal.Location("DHBW Mosbach"), token.Location)
+	assert.Equal(t, 1, token.Valid)
+	assert.Equal(t, qr, token.QR)
+
+	// New token has updated exp and valid attribute.
+	assert.Equal(t, token.ID, refresh.ID)
+	assert.Equal(t, token.Iat, refresh.Iat)
+	assert.Equal(t, token.Location, refresh.Location)
+	assert.Equal(t, token.QR, refresh.QR)
+	assert.Equal(t, 0, refresh.Valid)
+	assert.Equal(t, ts.Add(expDuration), refresh.Exp)
+}
+
+func TestAccessTokenRefreshInvalid(t *testing.T) {
+	iat := time.Now()
+	expDuration := time.Duration(5) * time.Second
+	qr, err := qrcode.Encode("https://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	token := AccessToken{"a", iat, iat.Add(expDuration), 0, "DHBW Mosbach", qr}
+
+	ts := time.Now()
+	refresh := token.refresh(ts, expDuration)
+
+	// Don't update expire time for an invalid token.
+	assert.Equal(t, token.ID, refresh.ID)
+	assert.Equal(t, token.Iat, refresh.Iat)
+	assert.Equal(t, token.Exp, refresh.Exp)
+	assert.Equal(t, token.Location, refresh.Location)
+	assert.Equal(t, -1, refresh.Valid)
+	assert.Equal(t, qr, refresh.QR)
+}
+
+func TestAccessTokenMarshalJSON(t *testing.T) {
+	id := "a"
+	iat := time.Now()
+	exp := iat.Add(time.Duration(5) * time.Second)
+	valid := 1
+	loc := journal.Location("DHBW Mosbach")
+	qr, err := qrcode.Encode("https://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	iatUnix := iat.Unix()
+	expUnix := exp.Unix()
+	qrEncoded := base64.StdEncoding.EncodeToString(qr)
+
+	marshal := fmt.Sprintf("{\"id\":\"%v\",\"iat\":%v,\"exp\":%v,\"valid\":%v,\"loc\":\"%v\",\"qr\":\"%v\"}", id, iatUnix, expUnix, valid, loc, qrEncoded)
+
+	token := AccessToken{id, iat, exp, valid, loc, qr}
+	actual, err := token.MarshalJSON()
+	assert.NoError(t, err)
+
+	assert.Equal(t, marshal, string(actual))
+}
+
+func TestAccesstokenUnmarshalJSON(t *testing.T) {
+	id := "a"
+	// Get iat and exp with precicion of seconds
+	iat := time.Unix(time.Now().Unix(), 0)
+	exp := iat.Add(time.Duration(5) * time.Second)
+	valid := 1
+	loc := journal.Location("DHBW Mosbach")
+	qr, err := qrcode.Encode("https://login", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	qrEncoded := base64.StdEncoding.EncodeToString(qr)
+
+	// Expected token
+	token := AccessToken{id, iat, exp, valid, loc, qr}
+
+	// String to unmarshal
+	marshal := fmt.Sprintf("{\"id\":\"%v\",\"iat\":%v,\"exp\":%v,\"valid\":%v,\"loc\":\"%v\",\"qr\":\"%v\"}", id, iat.Unix(), exp.Unix(), valid, loc, qrEncoded)
+
+	var unmarshal AccessToken
+	err = unmarshal.UnmarshalJSON([]byte(marshal))
+	assert.NoError(t, err)
+
+	assert.Equal(t, token, unmarshal)
+}
+
+func TestReadLocationsFromXML(t *testing.T) {
+	actual, err := ReadLocationsFromXML(path.Join("testdata", "locations.xml"))
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, locations, actual)
+}
+
+func TestReadLocationFromXMLFailedRead(t *testing.T) {
+	expected := Locations{}
+	actual, err := ReadLocationsFromXML(path.Join("falsePath", "locations.xml"))
+
+	assert.Error(t, err)
+	assert.EqualValues(t, expected, actual)
+}
+
+func TestGenerateTokens(t *testing.T) {
+	ids := make(chan string, 2)
+	ids <- "a"
+	ids <- "b"
+
+	ts := time.Now()
+	exp := time.Duration(5) * time.Second
+	url, err := url.Parse("https://login")
+	assert.NoError(t, err)
+
+	qrA, err := qrcode.Encode(url.String()+"?token=a", qrcode.Medium, 256)
+	assert.NoError(t, err)
+	qrB, err := qrcode.Encode(url.String()+"?token=b", qrcode.Medium, 256)
+	assert.NoError(t, err)
+
+	expected := []*AccessToken{
+		{"a", ts, ts.Add(exp), LastValidTokens, locations.Slice[0], qrA},
+		{"b", ts, ts.Add(exp), LastValidTokens, locations.Slice[1], qrB},
+	}
+
+	tokens := locations.GenerateTokens(ids, ts, exp, url)
+	assert.Equal(t, expected, tokens)
+}
+
+func TestContains(t *testing.T) {
+	actual := locations.Contains("DHBW Mosbach")
+	assert.True(t, actual)
+}
+
+func TestContainsNotContains(t *testing.T) {
+	actual := locations.Contains("Night Club")
+	assert.False(t, actual)
+}

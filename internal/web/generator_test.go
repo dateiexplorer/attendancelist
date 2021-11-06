@@ -10,11 +10,18 @@
 package web
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/dateiexplorer/attendancelist/internal/journal"
 	"github.com/stretchr/testify/assert"
 )
+
+type test struct{}
+
+func (t test) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("cannot marshal test data")
+}
 
 func TestRandIdGeneratorEvenId(t *testing.T) {
 	stream := RandIDGenerator(8, 10)
@@ -33,10 +40,9 @@ func TestRandIdGeneratorOddId(t *testing.T) {
 func TestHash(t *testing.T) {
 	person1 := journal.NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
 	person2 := journal.NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
-	privkey := "privServerSecret1"
+	privkey := "privServerSecret"
 
 	hashPerson1, err := Hash(person1, privkey)
-
 	assert.NoError(t, err)
 
 	// To hashes with the same data should be equal
@@ -59,4 +65,12 @@ func TestHashShouldNotBeEqual(t *testing.T) {
 
 	// To hashes with unequal data should be unequal
 	assert.NotEqual(t, hash1, hash2)
+}
+
+func TestHashError(t *testing.T) {
+	test := test{}
+	hash, err := Hash(test, "privServerSecret")
+
+	assert.Error(t, err)
+	assert.Equal(t, "", hash)
 }

@@ -211,12 +211,14 @@ func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, 
 				onAccessDenied(w)
 				return
 			}
+
 			token, ok := validTokens.GetByID(tokenID)
 			// If token is not in validTokens, deny access.
 			if !ok {
 				onAccessDenied(w)
 				return
 			}
+
 			// Check if user cookie is set
 			cookie, err := r.Cookie("user")
 			if err != nil {
@@ -226,7 +228,9 @@ func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, 
 				onInvalidCookie(w, token)
 				return
 			}
+
 			var userCookie web.UserCookie
+
 			// Check if cookie is valid
 			decodedCookie, err := base64.StdEncoding.DecodeString(cookie.Value)
 			if err != nil {
@@ -234,11 +238,13 @@ func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, 
 				onInvalidCookie(w, token)
 				return
 			}
+
 			err = json.Unmarshal([]byte(decodedCookie), &userCookie)
 			if err != nil {
 				onInvalidCookie(w, token)
 				return
 			}
+
 			hash, err := web.Hash(*userCookie.Person, privServerSecret)
 			if err != nil || hash != userCookie.Hash {
 				onInvalidCookie(w, token)
@@ -258,6 +264,7 @@ func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, 
 					return
 				}
 			}
+
 			// If the location isn't the same as the location in the UserSession
 			// or UserSession doesn't exists, show filled login form
 			t := template.Must(template.ParseFS(content, "web/templates/loginservice/form.html"))
@@ -278,6 +285,7 @@ func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, 
 				t.Execute(w, err.Error())
 				return
 			}
+
 			tokenID := r.FormValue("tokenId")
 			location := journal.Location(r.FormValue("location"))
 			firstName := r.FormValue("firstName")
@@ -292,6 +300,7 @@ func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, 
 				t.Execute(w, fmt.Errorf("form is not complete"))
 				return
 			}
+
 			// Check if user can do perform a login.
 			token, ok := validTokens.GetByID(tokenID)
 			if !ok || token.Location != location {
@@ -299,15 +308,18 @@ func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, 
 				onAccessDenied(w)
 				return
 			}
+
 			// Show login page and set new UserCookie
 			person := journal.NewPerson(firstName, lastName, street, number, zipCode, city)
 			userCookie, hash := web.CreateUserCookie(&person, privServerSecret)
 			http.SetCookie(w, userCookie)
+
 			// Token is valid, check if session exists
 			// If UserSession exists, perform first logout and login afterwards
 			if userSession, ok := openSessions.GetSessionForUser(hash); ok {
 				sessionQueue <- web.CloseSession(timeutil.Now(), userSession, &person)
 			}
+
 			sessionQueue <- web.OpenSession(sessionIDs, timeutil.Now(), &person, location, privServerSecret)
 			t := template.Must(template.ParseFS(content, "web/templates/loginservice/login.html"))
 			t.Execute(w, location)

@@ -16,9 +16,11 @@ func (c *config) validate() (bool, []error) {
 	if c.expireDuration <= 0 {
 		errs = append(errs, fmt.Errorf("the expire time for access token must be greater than zero"))
 	}
+
 	if c.locationsPath == "" {
 		errs = append(errs, fmt.Errorf("the path to the locations XML file must be set, e.g. -locations locations.xml"))
 	}
+
 	if c.certPath == "" {
 		errs = append(errs, fmt.Errorf("the path to the SSL/TLS certificate file must be set, e.g. -cert cert.pem"))
 	}
