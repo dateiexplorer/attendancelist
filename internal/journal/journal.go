@@ -202,6 +202,16 @@ type JournalEntry struct {
 	person    Person
 }
 
+func NewJournalEntry(timestamp timeutil.Timestamp, session SessionIdentifier, event Event, location Location, person Person) JournalEntry {
+	return JournalEntry{
+		timestamp: timestamp,
+		session:   session,
+		event:     event,
+		location:  location,
+		person:    person,
+	}
+}
+
 func (e *JournalEntry) Person() Person {
 	return e.person
 }

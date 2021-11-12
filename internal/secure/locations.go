@@ -210,7 +210,7 @@ type AccessToken struct {
 func newAccessToken(id string, iat time.Time, exp time.Duration, valid int, loc journal.Location, baseUrl string, port int) AccessToken {
 	token := AccessToken{ID: id, Exp: iat.Add(exp), Iat: iat, Valid: valid, Location: loc}
 
-	qr, err := qrcode.Encode(fmt.Sprintf("%v:%v?token=%v", baseUrl, port, token.ID), qrcode.Medium, 256)
+	qr, err := qrcode.Encode(fmt.Sprintf("%v:%v/access?token=%v", baseUrl, port, token.ID), qrcode.Medium, 256)
 	if err != nil {
 		panic(fmt.Errorf("cannot create qr code: %w", err))
 	}
@@ -237,6 +237,7 @@ func (t *AccessToken) MarshalJSON() ([]byte, error) {
 		QR:       t.QR,
 	})
 }
+
 
 func (t *AccessToken) UnmarshalJSON(data []byte) error {
 	tmp := struct {
