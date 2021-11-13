@@ -217,6 +217,10 @@ type Person struct {
 	Address   Address `json:"address"`
 }
 
+func (p *Person) String() string {
+	return fmt.Sprintf("%v,%v,%v,%v,%v,%v", p.FirstName, p.LastName, p.Address.Street, p.Address.Number, p.Address.ZipCode, p.Address.City)
+}
+
 // NewPerson returns a new Person with the given attributes.
 func NewPerson(firstName, lastName, street, number, zipCode, city string) Person {
 	return Person{firstName, lastName, Address{street, number, zipCode, city}}

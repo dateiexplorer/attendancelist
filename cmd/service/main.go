@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -76,26 +75,6 @@ func onInvalidCookie(w http.ResponseWriter, validToken *web.AccessToken) {
 	})
 }
 
-type URLValue struct {
-	URL *url.URL
-}
-
-func (v URLValue) String() string {
-	if v.URL != nil {
-		return v.URL.String()
-	}
-	return ""
-}
-
-func (v URLValue) Set(s string) error {
-	if u, err := url.Parse(s); err != nil {
-		return err
-	} else {
-		*v.URL = *u
-	}
-	return nil
-}
-
 func main() {
 	var loginURL, _ = url.Parse("https://localhost:4444/login")
 	var locationsPath, certPath, keyPath string
@@ -129,12 +108,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Get working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(fmt.Errorf("cannot get working directory: %w", err))
-	}
-
 	// Load locations from XML file
 	locations, err := web.ReadLocationsFromXML(locationsPath)
 	if err != nil {
@@ -145,7 +118,17 @@ func main() {
 	journalWriter := make(chan journal.JournalEntry, 1000)
 	go func() {
 		for entry := range journalWriter {
-			journal.WriteToJournalFile(path.Join(wd, "data"), &entry)
+			path := "data"
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				// Create empty directory
+				if err = os.MkdirAll(path, os.ModePerm); err != nil {
+					fmt.Fprintln(os.Stderr, "error while create directories: %w", err)
+				}
+			}
+
+			if err = journal.WriteToJournalFile(path, &entry); err != nil {
+				fmt.Fprintln(os.Stderr, "error while write journal file: %w", err)
+			}
 		}
 	}()
 

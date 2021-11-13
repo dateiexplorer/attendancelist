@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -11,17 +12,9 @@ import (
 	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 )
 
-type Action int
-
-const (
-	GetVisitedLocationsForPerson Action = iota
-	GetContactsForPerson
-	GetAttendanceListForLocation
-)
-
-var person, location, filePath string
-
 func main() {
+	var person, location, filePath string
+
 	// Subcommands
 	locationsCommand := flag.NewFlagSet("locations", flag.ExitOnError)
 	locationsCommand.StringVar(&person, "person", "", "person for whom the locations are determined")
@@ -40,6 +33,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Parse date
 	lastArg := os.Args[len(os.Args)-1]
 	date, err := timeutil.ParseDate(lastArg)
 	if err != nil {
@@ -47,8 +41,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Read journal file
+	j, err := journal.ReadJournal("data", date)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "cannot read journal file for the specific date: %w", err)
+	}
+
 	args := os.Args[2 : len(os.Args)-1]
 
+	// Decide which command should be executed.
 	switch os.Args[1] {
 	case locationsCommand.Name():
 		locationsCommand.Parse(args)
@@ -67,7 +68,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		doAction(GetVisitedLocationsForPerson, "testdata", date)
+		if msg, err := printVisistedLocationsForPerson(j, person); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+		} else {
+			fmt.Print(msg)
+		}
+
 		return
 	}
 
@@ -77,7 +83,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		doAction(GetContactsForPerson, "testdata", date)
+		// TODO: Not implemented yet
+		// printContactsForPerson(j, person)
 		return
 	}
 
@@ -87,7 +94,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		doAction(GetAttendanceListForLocation, "testdata", date)
+		if msg, err := createAttendanceListForLocation(j, location, filePath); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+		} else {
+			fmt.Print(msg)
+		}
+
 		return
 	}
 }
@@ -96,66 +108,81 @@ func usage() string {
 	return "Usage..."
 }
 
-func doAction(action Action, journalDir string, journalDate timeutil.Date) error {
-	j, err := journal.ReadJournal(journalDir, journalDate)
-	if err != nil {
-		return err
+func printVisistedLocationsForPerson(j journal.Journal, person string) (string, error) {
+	persons := getMatchingPersonsFromJournal(j, person)
+
+	if len(persons) < 1 {
+		return "", fmt.Errorf("no person found matches this attributes")
 	}
 
-	switch action {
-	case GetVisitedLocationsForPerson:
-		attr := strings.Split(person, ",")
-
-		persons := make([]journal.Person, 0, 1)
-
-	loop:
-		for _, e := range j.Entries() {
-			p := e.Person
-
-			for _, per := range persons {
-				if p == per {
-					continue loop
-				}
-			}
-
-			for _, a := range attr {
-				if p.FirstName != a && p.LastName != a && p.Address.Street != a && p.Address.Number != a && p.Address.ZipCode != a && p.Address.City != a {
-					continue loop
-				}
-			}
-
-			persons = append(persons, p)
+	if len(persons) > 1 {
+		errMsg := "there are more than one person matching this attributes:\n"
+		for _, p := range persons {
+			errMsg += fmt.Sprintf("  %v\n", p.String())
 		}
+		errMsg += "add more search criterias"
+		return "", fmt.Errorf(errMsg)
+	}
 
-		if len(persons) < 1 {
-			fmt.Println("No person found matches this attributes")
-			return nil
-		}
+	// Get Locations for this peson
+	locs := j.GetVisitedLocationsForPerson(&persons[0])
+	msg := ""
+	for _, l := range locs {
+		msg += fmt.Sprintln(l)
+	}
 
-		if len(persons) > 1 {
-			fmt.Println("There are more than one persons matching this attributes")
-			fmt.Println(persons)
-			return nil
-		}
+	return msg, nil
+}
 
-		locs := j.GetVisitedLocationsForPerson(&persons[0])
-		fmt.Println(locs)
-	case GetAttendanceListForLocation:
-		list := j.GetAttendanceListForLocation(journal.Location(location))
+func createAttendanceListForLocation(j journal.Journal, location string, filePath string) (string, error) {
+	list := j.GetAttendanceListForLocation(journal.Location(location))
 
-		if len(filePath) == 0 {
-			fmt.Println(list)
-			return nil
-		}
+	var f io.Writer
 
-		f, err := os.Create(filePath)
+	// If no file path set, write to console
+	if len(filePath) == 0 {
+		f = os.Stdout
+	} else {
+		file, err := os.Create(filePath)
 		if err != nil {
-			return err
+			return "", fmt.Errorf("cannot create file: %w", err)
 		}
 
-		defer f.Close()
-
-		convert.ToCSV(f, list)
+		defer file.Close()
+		f = file
 	}
-	return nil
+
+	if err := convert.ToCSV(f, list); err != nil {
+		return "", fmt.Errorf("cannot convert to csv: %w", err)
+	}
+
+	return fmt.Sprintln("Output successfully written."), nil
+}
+
+func getMatchingPersonsFromJournal(j journal.Journal, person string) []journal.Person {
+	attr := strings.Split(person, ",")
+	persons := make([]journal.Person, 0)
+
+loop:
+	for _, e := range j.Entries() {
+		p := e.Person
+
+		// If same person, skip this entry
+		for _, per := range persons {
+			if p == per {
+				continue loop
+			}
+		}
+
+		// Attributes can be in a random order.
+		for _, a := range attr {
+			if p.FirstName != a && p.LastName != a && p.Address.Street != a && p.Address.Number != a && p.Address.ZipCode != a && p.Address.City != a {
+				continue loop
+			}
+		}
+
+		persons = append(persons, p)
+	}
+
+	return persons
 }

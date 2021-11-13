@@ -175,6 +175,11 @@ func TestNewPerson(t *testing.T) {
 	assert.Equal(t, persons["MM"], p)
 }
 
+func TestPersonString(t *testing.T) {
+	p := NewPerson("Max", "Mustermann", "Musterstraße", "20", "74821", "Mosbach")
+	assert.Equal(t, "Max,Mustermann,Musterstraße,20,74821,Mosbach", p.String())
+}
+
 func TestWriteToJournalFile(t *testing.T) {
 	timestamp := timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0)
 	expected := JournalEntry{timestamp, "aabbccddeeff", Login, locs["DH"], persons["MM"]}
