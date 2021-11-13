@@ -34,47 +34,6 @@ func TestNewSession(t *testing.T) {
 	assert.Equal(t, expected, session)
 }
 
-// func TestRunOpenSessions(t *testing.T) {
-// 	openSessions := new(OpenSessions)
-
-// 	sessionQueue := make(chan sessionQueueItem)
-// 	journalWriter := make(chan journal.JournalEntry)
-
-// 	// Run goroutine in background
-// 	openSessions.run(sessionQueue, journalWriter)
-
-// 	timestamp := timeutil.Now()
-// 	location := journal.Location("DHBW Mosbach")
-// 	person := journal.NewPerson("Max", "Mustermann", "Musterstaße", "20", "74821", "Mosbach")
-// 	session := NewSession("aabbccddee", "hash", location)
-
-// 	// Open Session
-// 	sessionQueue <- sessionQueueItem{journal.Login, timestamp, &session, &person}
-
-// 	// If journalWriter receives entry, value is stored
-// 	entry := <-journalWriter
-// 	journalEntryLogin := journal.NewJournalEntry(timestamp, session.ID, journal.Login, location, person)
-// 	assert.Equal(t, journalEntryLogin, entry)
-
-// 	value, ok := openSessions.Load(session.UserHash)
-// 	assert.True(t, ok)
-
-// 	actual, ok := value.(*Session)
-// 	assert.True(t, ok)
-// 	assert.Equal(t, session, *actual)
-
-// 	// Close Session
-// 	sessionQueue <- sessionQueueItem{journal.Logout, timestamp, &session, &person}
-// 	entry = <-journalWriter
-// 	journalEntryLogout := journal.NewJournalEntry(timestamp, session.ID, journal.Logout, location, person)
-
-// 	value, ok = openSessions.Load(session.UserHash)
-// 	assert.False(t, ok)
-// 	assert.Nil(t, value)
-
-// 	assert.Equal(t, journalEntryLogout, entry)
-// }
-
 func TestOpenSession(t *testing.T) {
 	ts := timeutil.Now()
 	loc := journal.Location("DHBW Mosbach")
