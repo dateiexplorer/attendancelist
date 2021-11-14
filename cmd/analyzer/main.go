@@ -75,7 +75,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if msg, err := printVisistedLocationsForPerson(j, person); err != nil {
+		if msg, err := printVisitedLocationsForPerson(j, person); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 		} else {
 			fmt.Print(msg)
@@ -129,7 +129,7 @@ To get help for any command type -h after the command name.
 `
 }
 
-func printVisistedLocationsForPerson(j journal.Journal, person string) (string, error) {
+func printVisitedLocationsForPerson(j journal.Journal, person string) (string, error) {
 	persons := getMatchingPersonsFromJournal(j, person)
 
 	if len(persons) < 1 {
