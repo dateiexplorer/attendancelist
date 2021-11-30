@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 )
@@ -24,13 +25,8 @@ const journalFileExtension = ".journal"
 
 // A Journal represents a journal file with a date an severeal JournalEntries
 type Journal struct {
-	date    timeutil.Date
-	entries []JournalEntry
-}
-
-// Entries returns a slice of all JournalEntries for this Journal.
-func (j *Journal) Entries() []JournalEntry {
-	return j.entries
+	Date    timeutil.Date
+	Entries []JournalEntry
 }
 
 // ReadJournal reads data from a file for a specific date on the filesystem and
@@ -131,7 +127,7 @@ func WriteToJournalFile(dir string, e *JournalEntry) error {
 func (j Journal) GetVisitedLocationsForPerson(p *Person) []Location {
 	// Use a map to guarantee that a Location appears only once in the slice.
 	m := map[Location]Location{}
-	for _, e := range j.entries {
+	for _, e := range j.Entries {
 		if e.Person == *p {
 			m[e.Location] = e.Location
 		}
@@ -156,7 +152,7 @@ func (j Journal) GetVisitedLocationsForPerson(p *Person) []Location {
 // same order.
 func (j Journal) GetAttendanceListForLocation(l Location) AttendanceList {
 	m := map[string]AttendanceEntry{}
-	for _, e := range j.entries {
+	for _, e := range j.Entries {
 		if e.Location == l {
 			switch e.Event {
 			case Login:
@@ -182,6 +178,132 @@ func (j Journal) GetAttendanceListForLocation(l Location) AttendanceList {
 	})
 
 	return list
+}
+
+// GetContactsForPerson returns a ContactList which holds all contacts for the
+// Person p, which can be extracted from the Journal j.
+func (j Journal) GetContactsForPerson(p *Person) ContactList {
+	var contacts ContactList
+
+	global := make(map[string]JournalEntry)
+	var local map[string]JournalEntry
+
+	startTimestamp := timeutil.InvalidTimestamp
+	var loc Location
+
+	// Defines what happens on logout of the searched person
+	onLogout := func(end timeutil.Timestamp) {
+		// Happends if searched person not logged in on this day, but logged out
+		if startTimestamp == timeutil.InvalidTimestamp {
+			// Choose beginning of this day
+			startTimestamp = timeutil.NewTimestamp(j.Date.Year, j.Date.Month, j.Date.Day, 0, 0, 0)
+		}
+
+		// Get all entries from local map
+		for key, value := range local {
+			contacts = append(contacts, NewContact(value.Person, value.Location, value.Timestamp, end))
+			delete(local, key)
+		}
+
+		// Get corresponding contacts from global map
+		for _, value := range global {
+			if value.Location == loc {
+				contacts = append(contacts, NewContact(value.Person, value.Location, startTimestamp, end))
+			}
+		}
+
+		startTimestamp = timeutil.InvalidTimestamp
+	}
+
+	for _, entry := range j.Entries {
+		// Person is not searched
+		if entry.Person != *p {
+			switch entry.Event {
+			case Login:
+				if startTimestamp != timeutil.InvalidTimestamp && entry.Location == loc {
+					// Store in local map
+					local[entry.SessionID] = entry
+				} else {
+					global[entry.SessionID] = entry
+				}
+			case Logout:
+				if startTimestamp != timeutil.InvalidTimestamp && entry.Location == loc {
+					if value, ok := local[entry.SessionID]; ok {
+						// Contact after persons login
+						contacts = append(contacts, NewContact(entry.Person, entry.Location, value.Timestamp, entry.Timestamp))
+						delete(local, entry.SessionID)
+					} else {
+						// Contact before persons login
+						contacts = append(contacts, NewContact(entry.Person, entry.Location, startTimestamp, entry.Timestamp))
+					}
+				}
+
+				delete(global, entry.SessionID)
+			}
+		} else {
+			loc = entry.Location
+			switch entry.Event {
+			case Login:
+				startTimestamp = entry.Timestamp
+				// Begin new local map for entries
+				local = make(map[string]JournalEntry)
+			case Logout:
+				onLogout(entry.Timestamp)
+			}
+		}
+	}
+
+	// There are contacts left
+	if startTimestamp != timeutil.InvalidTimestamp {
+		onLogout(timeutil.NewTimestamp(j.Date.Year, j.Date.Month, j.Date.Day, 23, 59, 59))
+	}
+
+	return contacts
+}
+
+// A Contact represents the meet with a person. It additionally stores the Location of the meet,
+// the Start and End time and the Duration.
+type Contact struct {
+	Person     Person
+	Location   Location
+	Start, End timeutil.Timestamp
+	Duration   time.Duration
+}
+
+// NewContact returns a new Contact with the given attributes.
+// The Duration will be calculated as the difference between the Start and End Timestamp.
+func NewContact(p Person, loc Location, start, end timeutil.Timestamp) Contact {
+	return Contact{Person: p, Location: loc, Start: start, End: end, Duration: end.Sub(start.Time)}
+}
+
+// A ContactList is a slice of Contacts.
+type ContactList []Contact
+
+// NextEntry returns a read-only channel that loops through the hole ContactList
+// and returns data of the Contact as a string slice.
+//
+// Used to convert an ContactList to any file format.
+func (l ContactList) NextEntry() <-chan []string {
+	entries := make(chan []string)
+	go func() {
+		for _, e := range l {
+			entries <- []string{e.Person.FirstName, e.Person.LastName,
+				e.Person.Address.Street, e.Person.Address.Number, e.Person.Address.ZipCode, e.Person.Address.City,
+				string(e.Location), e.Start.String(), e.End.String(), e.Duration.String()}
+		}
+
+		close(entries)
+	}()
+
+	return entries
+}
+
+// Header returns a string slice which describes the data given by the NextEntry
+// function.
+//
+// Used to convert an ContactList to any file format.
+func (l ContactList) Header() []string {
+	return []string{"FirstName", "LastName", "Street", "Number", "ZipCode", "City", "Location", "Start", "End", "Duration"}
 }
 
 // A JournalEntry represents one row in the Journal.

@@ -28,6 +28,7 @@ func main() {
 
 	contactsCommand := flag.NewFlagSet("contacts", flag.ExitOnError)
 	contactsCommand.StringVar(&person, "person", "", "person for whom the locations are determined")
+	contactsCommand.StringVar(&filePath, "w", "", "filename")
 
 	attendancesCommand := flag.NewFlagSet("attendances", flag.ExitOnError)
 	attendancesCommand.StringVar(&location, "location", "", "location for which an attendance list is created")
@@ -90,8 +91,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		// TODO: Not implemented yet
-		// printContactsForPerson(j, person)
+		if msg, err := printContactsForPerson(j, person, filePath); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+		} else {
+			fmt.Println(msg)
+		}
+
 		return
 	}
 
@@ -155,29 +160,30 @@ func printVisitedLocationsForPerson(j journal.Journal, person string) (string, e
 	return msg, nil
 }
 
+func printContactsForPerson(j journal.Journal, person string, filePath string) (string, error) {
+	persons := getMatchingPersonsFromJournal(j, person)
+
+	if len(persons) < 1 {
+		return "", fmt.Errorf("no person found matches this attributes")
+	}
+
+	if len(persons) > 1 {
+		errMsg := "there are more than one person matching this attributes:\n"
+		for _, p := range persons {
+			errMsg += fmt.Sprintf("  %v\n", p.String())
+		}
+		errMsg += "add more search criterias"
+		return "", fmt.Errorf(errMsg)
+	}
+
+	// Get Contacts for this peson
+	contacts := j.GetContactsForPerson(&persons[0])
+	return writeToCSV(contacts, filePath)
+}
+
 func createAttendanceListForLocation(j journal.Journal, location string, filePath string) (string, error) {
 	list := j.GetAttendanceListForLocation(journal.Location(location))
-
-	var f io.Writer
-
-	// If no file path set, write to console
-	if len(filePath) == 0 {
-		f = os.Stdout
-	} else {
-		file, err := os.Create(filePath)
-		if err != nil {
-			return "", fmt.Errorf("cannot create file: %w", err)
-		}
-
-		defer file.Close()
-		f = file
-	}
-
-	if err := convert.ToCSV(f, list); err != nil {
-		return "", fmt.Errorf("cannot convert to csv: %w", err)
-	}
-
-	return fmt.Sprintln("Output successfully written."), nil
+	return writeToCSV(list, filePath)
 }
 
 func getMatchingPersonsFromJournal(j journal.Journal, person string) []journal.Person {
@@ -185,7 +191,7 @@ func getMatchingPersonsFromJournal(j journal.Journal, person string) []journal.P
 	persons := make([]journal.Person, 0)
 
 loop:
-	for _, e := range j.Entries() {
+	for _, e := range j.Entries {
 		p := e.Person
 
 		// If same person, skip this entry
@@ -206,4 +212,27 @@ loop:
 	}
 
 	return persons
+}
+
+func writeToCSV(c convert.Converter, filePath string) (string, error) {
+	var f io.Writer
+
+	// If no file path set, write to console
+	if len(filePath) == 0 {
+		f = os.Stdout
+	} else {
+		file, err := os.Create(filePath)
+		if err != nil {
+			return "", fmt.Errorf("cannot create file: %w", err)
+		}
+
+		defer file.Close()
+		f = file
+	}
+
+	if err := convert.ToCSV(f, c); err != nil {
+		return "", fmt.Errorf("cannot convert to csv: %w", err)
+	}
+
+	return fmt.Sprintln("Output successfully written."), nil
 }

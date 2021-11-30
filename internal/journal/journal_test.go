@@ -9,6 +9,7 @@
 package journal
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -26,6 +27,7 @@ var persons = map[string]Person{
 	"AM": {"Anne", "Meier", Address{"Hauptstraße", "18", "74821", "Mosbach"}},
 	"LM": {"Lieschen", "Müller", Address{"Lindenstraße", "15", "10115", "Berlin"}},
 	"ON": {"Otto", "Normalverbraucher", Address{"Dieselstraße", "52", "70376", "Stuttgart"}},
+	"TT": {"Torsten", "Test", Address{"Teststraße", "10", "74821", "Mosbach"}},
 }
 
 var locs = map[string]Location{
@@ -71,7 +73,7 @@ func TestReadMalformedJournal(t *testing.T) {
 	}
 
 	for _, journal := range expected {
-		actual, err := ReadJournal("testdata", journal.date)
+		actual, err := ReadJournal("testdata", journal.Date)
 		assert.NotErrorIs(t, err, os.ErrNotExist)
 		assert.Error(t, err)
 		assert.Equal(t, journal, actual)
@@ -143,6 +145,15 @@ func TestGetAttendanceListForLocationNotExistingLocation(t *testing.T) {
 	assert.Equal(t, expected, actual)
 }
 
+func TestGetContactsForPerson(t *testing.T) {
+	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 11, 30))
+	assert.NoError(t, err)
+
+	p := persons["TT"]
+	actual := journal.GetContactsForPerson(&p)
+	fmt.Println(actual)
+}
+
 func TestNextEntry(t *testing.T) {
 	expected := [][]string{
 		{"Hans", "Müller", "Feldweg", "12", "74722", "Buchen", "13:40:11", ""},
@@ -190,7 +201,7 @@ func TestWriteToJournalFile(t *testing.T) {
 	journal, err := ReadJournal("testdata", timestamp.Date())
 	assert.NoError(t, err)
 
-	actual := journal.entries
+	actual := journal.Entries
 	assert.Equal(t, 1, len(actual))
 	assert.Equal(t, expected, actual[0])
 
@@ -213,23 +224,12 @@ func TestWriteToJournalFileAppendEntry(t *testing.T) {
 	journal, err := ReadJournal("testdata", date)
 	assert.NoError(t, err)
 
-	actual := journal.entries
+	actual := journal.Entries
 	assert.Equal(t, 2, len(actual))
 	assert.Equal(t, expected, actual)
 
 	err = os.Remove(path.Join("testdata", date.String()+journalFileExtension))
 	assert.NoError(t, err)
-}
-
-func TestEntries(t *testing.T) {
-	expected := []JournalEntry{
-		{timeutil.NewTimestamp(2021, 10, 16, 15, 30, 0), "aabbccddeeff", Login, locs["DH"], persons["MM"]},
-		{timeutil.NewTimestamp(2021, 10, 16, 17, 20, 0), "aabbccddeeff", Logout, locs["DH"], persons["MM"]},
-	}
-
-	journal := Journal{timeutil.NewDate(2021, 10, 16), expected}
-	actual := journal.Entries()
-	assert.Equal(t, expected, actual)
 }
 
 func TestNewJournalEntry(t *testing.T) {

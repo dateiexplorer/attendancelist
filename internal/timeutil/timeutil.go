@@ -86,14 +86,14 @@ func (t Timestamp) String() string {
 
 // A Date represents a calendar date.
 type Date struct {
-	year  int
-	month time.Month
-	date  int
+	Year  int
+	Month time.Month
+	Day   int
 }
 
 // NewDate returns a new Date.
-func NewDate(year int, month time.Month, date int) Date {
-	return Date{year, month, date}
+func NewDate(year int, month time.Month, day int) Date {
+	return Date{year, month, day}
 }
 
 // ParseDate parses a formatted string of the layout "dd.MM.yyyy" into a date.
@@ -127,5 +127,5 @@ func ParseDate(value string) (Date, error) {
 
 // String returns the internal representation of a Date formatted as "yyyy-MM-dd".
 func (d Date) String() string {
-	return fmt.Sprintf("%04d-%02d-%02d", d.year, int(d.month), d.date)
+	return fmt.Sprintf("%04d-%02d-%02d", d.Year, int(d.Month), d.Day)
 }
