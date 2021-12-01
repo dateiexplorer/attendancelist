@@ -20,7 +20,7 @@
             <div class="row">
                 <div class="col-50">
                     {{if .Person}}
-                    <input type="text" placeholder="First Name" name="firstName" value={{.Person.FirstName}} required>
+                    <input type="text" placeholder="First Name" name="firstName" value="{{.Person.FirstName}}" required>
                     {{else}}
                     <input type="text" placeholder="First Name" name="firstName" required>
                     {{end}}

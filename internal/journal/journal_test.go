@@ -9,7 +9,6 @@
 package journal
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -180,7 +179,6 @@ func TestGetContactsForPersonOnlyLoggedOut(t *testing.T) {
 	actual := journal.GetContactsForPerson(&p)
 
 	for _, c := range actual {
-		fmt.Println(c)
 		assert.Contains(t, expected, c)
 	}
 

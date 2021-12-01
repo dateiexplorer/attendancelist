@@ -35,15 +35,15 @@ func RunSessionManager(journalWriter chan<- journal.JournalEntry, idLength int) 
 	ids := RandIDGenerator(idLength, maxConcurrentRequests)
 	go func() {
 		for item := range sessionQueue {
-			switch item.action {
+			switch item.Action {
 			case journal.Login:
-				openSessions.Store(item.session.UserHash, item.session)
+				openSessions.Store(item.Session.UserHash, item.Session)
 			case journal.Logout:
-				openSessions.Delete(item.session.UserHash)
+				openSessions.Delete(item.Session.UserHash)
 			}
 
 			// Write the event to the jorunalWriter.
-			journalWriter <- journal.NewJournalEntry(item.timestamp, item.session.ID, item.action, item.session.Location, *item.person)
+			journalWriter <- journal.NewJournalEntry(item.Timestamp, item.Session.ID, item.Action, item.Session.Location, *item.Person)
 		}
 	}()
 
@@ -92,10 +92,10 @@ func NewSession(id string, userHash string, loc journal.Location) Session {
 // It is private and only accessible throw the public functions OpenSession and
 // CloseSession.
 type SessionQueueItem struct {
-	action    journal.Event
-	timestamp timeutil.Timestamp
-	session   *Session
-	person    *journal.Person
+	Action    journal.Event
+	Timestamp timeutil.Timestamp
+	Session   *Session
+	Person    *journal.Person
 }
 
 // OpenSession returns a SessionQueueItem which initiates to open a new Session

@@ -20,16 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func wrapper(handler http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r)
-	}
-}
-
-func createServer(handler http.HandlerFunc) *httptest.Server {
-	return httptest.NewServer(wrapper(handler))
-}
-
 func TestGetTokens(t *testing.T) {
 	tokens := []*web.AccessToken{
 		{ID: "a", Iat: timeutil.NewTimestamp(2021, 11, 30, 0, 0, 0).Time, Exp: timeutil.NewTimestamp(2021, 11, 30, 0, 0, 10).Time, Valid: 0, Location: "DHBW Mosbach", QR: []byte{}},
@@ -40,9 +30,9 @@ func TestGetTokens(t *testing.T) {
 
 	validTokens := new(web.ValidTokens)
 	validTokens.Add(tokens)
-	ts := createServer(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		getToken(w, r, validTokens)
-	})
+	}))
 	defer ts.Close()
 
 	// Get all tokens
