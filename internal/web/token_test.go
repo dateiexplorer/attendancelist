@@ -47,7 +47,7 @@ func TestValidTokensAdd(t *testing.T) {
 		{"b", iat, exp, 1, "Alte Mälzerei", qr},
 	}
 
-	validTokens.add(tokens)
+	validTokens.Add(tokens)
 
 	// Tokens should be in map
 	v, ok := validTokens.internal.Load("a")
@@ -83,7 +83,7 @@ func TestValidTokensAddEmptyList(t *testing.T) {
 	assert.Equal(t, 0, counter)
 
 	// Add empty map
-	validTokens.add([]*AccessToken{})
+	validTokens.Add([]*AccessToken{})
 
 	// Map must be empty
 	counter = 0
@@ -367,11 +367,11 @@ func TestAccessTokenMarshalJSON(t *testing.T) {
 	assert.Equal(t, marshal, string(actual))
 }
 
-func TestAccesstokenUnmarshalJSON(t *testing.T) {
+func TestAccessTokenUnmarshalJSON(t *testing.T) {
 	id := "a"
 	// Get iat and exp with precicion of seconds
-	iat := time.Unix(time.Now().Unix(), 0)
-	exp := iat.Add(time.Duration(5) * time.Second)
+	iat := time.Unix(time.Now().Unix(), 0).UTC()
+	exp := iat.Add(time.Duration(5) * time.Second).UTC()
 	valid := 1
 	loc := journal.Location("DHBW Mosbach")
 	qr, err := qrcode.Encode("https://login", qrcode.Medium, 256)

@@ -51,7 +51,7 @@ func onExpire(validTokens *ValidTokens, ids <-chan string, locs *Locations, time
 
 	// Generate new AccessTokens for each location
 	tokens := locs.GenerateTokens(ids, timestamp, exp, url)
-	validTokens.add(tokens)
+	validTokens.Add(tokens)
 }
 
 // ValidTokens is a map which holds and manages all valid tokens for all locations.
@@ -60,8 +60,8 @@ type ValidTokens struct {
 	internal sync.Map
 }
 
-// add stores a slice of new AccessTokens in the map.
-func (m *ValidTokens) add(tokens []*AccessToken) {
+// Add stores a slice of new AccessTokens in the map.
+func (m *ValidTokens) Add(tokens []*AccessToken) {
 	for _, t := range tokens {
 		m.internal.Store(t.ID, t)
 	}
@@ -206,8 +206,8 @@ func (t *AccessToken) UnmarshalJSON(data []byte) error {
 	json.Unmarshal(data, &tmp)
 
 	t.ID = tmp.ID
-	t.Exp = time.Unix(tmp.Exp, 0)
-	t.Iat = time.Unix(tmp.Iat, 0)
+	t.Exp = time.Unix(tmp.Exp, 0).UTC()
+	t.Iat = time.Unix(tmp.Iat, 0).UTC()
 	t.Valid = tmp.Valid
 	t.Location = tmp.Location
 	t.QR = tmp.QR

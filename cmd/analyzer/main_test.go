@@ -53,6 +53,15 @@ func TestPrintVisitedLocationsForPersonNoPersonFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestPrintContactsForPerson(t *testing.T) {
+	j, err := journal.ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
+	assert.NoError(t, err)
+
+	msg, err := printContactsForPerson(j, "Max,Mustermann", "")
+	assert.NoError(t, err)
+	assert.Equal(t, fmt.Sprintln("Output successfully written."), msg)
+}
+
 func TestCreateAttendanceListForLocation(t *testing.T) {
 	j, err := journal.ReadJournal("testdata", timeutil.NewDate(2021, 10, 15))
 	assert.NoError(t, err)

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 	"github.com/stretchr/testify/assert"
@@ -146,15 +147,78 @@ func TestGetAttendanceListForLocationNotExistingLocation(t *testing.T) {
 }
 
 func TestGetContactsForPerson(t *testing.T) {
+	expected := ContactList{
+		Contact{persons["AM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 11, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 12, 0, 0), 1 * time.Hour},
+		Contact{persons["TT"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 10, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 14, 0, 0), 4 * time.Hour},
+		Contact{persons["LM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 13, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 15, 0, 0), 2 * time.Hour},
+		Contact{persons["GM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 10, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 15, 0, 0), 5 * time.Hour},
+	}
+
+	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 11, 30))
+	assert.NoError(t, err)
+
+	p := persons["MM"]
+	actual := journal.GetContactsForPerson(&p)
+
+	assert.Equal(t, expected, actual)
+}
+
+func TestGetContactsForPersonOnlyLoggedOut(t *testing.T) {
+	expected := ContactList{
+		Contact{persons["HM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 6, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 8, 0, 0), 2 * time.Hour},
+		Contact{persons["AM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 11, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 12, 0, 0), 1 * time.Hour},
+		Contact{persons["GM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 9, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 14, 0, 0), 5 * time.Hour},
+		Contact{persons["MM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 10, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 14, 0, 0), 4 * time.Hour},
+		Contact{persons["LM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 13, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 14, 0, 0), 1 * time.Hour},
+		Contact{persons["ON"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 19, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 23, 59, 59), 4*time.Hour + 59*time.Minute + 59*time.Second},
+	}
+
 	journal, err := ReadJournal("testdata", timeutil.NewDate(2021, 11, 30))
 	assert.NoError(t, err)
 
 	p := persons["TT"]
 	actual := journal.GetContactsForPerson(&p)
-	fmt.Println(actual)
+
+	for _, c := range actual {
+		fmt.Println(c)
+		assert.Contains(t, expected, c)
+	}
+
+	assert.Equal(t, len(expected), len(actual))
 }
 
-func TestNextEntry(t *testing.T) {
+func TestContactListNextEntry(t *testing.T) {
+	expected := [][]string{
+		{"Hans", "Müller", "Feldweg", "12", "74722", "Buchen", "DHBW Mosbach", "2021/11/30 12:00:00 UTC", "2021/11/30 12:30:00 UTC", "30m0s"},
+		{"Otto", "Normalverbraucher", "Dieselstraße", "52", "70376", "Stuttgart", "DHBW Mosbach", "2021/11/30 12:00:00 UTC", "2021/11/30 13:30:30 UTC", "1h30m30s"},
+	}
+
+	contacts := ContactList{
+		NewContact(persons["HM"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 12, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 12, 30, 0)),
+		NewContact(persons["ON"], locs["DH"], timeutil.NewTimestamp(2021, 11, 30, 12, 0, 0), timeutil.NewTimestamp(2021, 11, 30, 13, 30, 30)),
+	}
+
+	counter := 0
+	for actual := range contacts.NextEntry() {
+		assert.Equal(t, expected[counter], actual)
+		counter++
+	}
+
+	assert.Equal(t, len(contacts), counter)
+}
+
+func TestContactListHeader(t *testing.T) {
+	expected := []string{
+		"FirstName", "LastName", "Street", "Number", "ZipCode", "City", "Location", "Start", "End", "Duration",
+	}
+
+	var contacts ContactList
+	actual := contacts.Header()
+
+	assert.Equal(t, expected, actual)
+}
+
+func TestAttendanceListNextEntry(t *testing.T) {
 	expected := [][]string{
 		{"Hans", "Müller", "Feldweg", "12", "74722", "Buchen", "13:40:11", ""},
 		{"Otto", "Normalverbraucher", "Dieselstraße", "52", "70376", "Stuttgart", "17:32:45", "19:15:12"},
@@ -174,7 +238,7 @@ func TestNextEntry(t *testing.T) {
 	assert.Equal(t, len(list), counter)
 }
 
-func TestHeader(t *testing.T) {
+func TestAttendanceListHeader(t *testing.T) {
 	expected := []string{"FirstName", "LastName", "Street", "Number", "ZipCode", "City", "Login", "Logout"}
 	list := AttendanceList{}
 	actual := list.Header()

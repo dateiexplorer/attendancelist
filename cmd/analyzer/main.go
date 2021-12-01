@@ -52,7 +52,7 @@ func main() {
 	// Read journal file
 	j, err := journal.ReadJournal("data", date)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "cannot read journal file for the specific date: %w", err)
+		fmt.Fprintf(os.Stderr, "cannot read journal file for the specific date: %v\n", err)
 	}
 
 	args := os.Args[2 : len(os.Args)-1]
@@ -94,7 +94,7 @@ func main() {
 		if msg, err := printContactsForPerson(j, person, filePath); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 		} else {
-			fmt.Println(msg)
+			fmt.Print(msg)
 		}
 
 		return

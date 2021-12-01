@@ -188,6 +188,9 @@ func (j Journal) GetContactsForPerson(p *Person) ContactList {
 	global := make(map[string]JournalEntry)
 	var local map[string]JournalEntry
 
+	// Contains all potential contacts if only logout for searched person found.
+	hold := make(map[string]Contact)
+
 	startTimestamp := timeutil.InvalidTimestamp
 	var loc Location
 
@@ -195,20 +198,28 @@ func (j Journal) GetContactsForPerson(p *Person) ContactList {
 	onLogout := func(end timeutil.Timestamp) {
 		// Happends if searched person not logged in on this day, but logged out
 		if startTimestamp == timeutil.InvalidTimestamp {
-			// Choose beginning of this day
-			startTimestamp = timeutil.NewTimestamp(j.Date.Year, j.Date.Month, j.Date.Day, 0, 0, 0)
-		}
+			for _, value := range hold {
+				if value.Location == loc {
+					if value.End.Sub(end.Time) > 0 {
+						value.End = end
+						value.Duration = value.End.Sub(value.Start.Time)
+					}
 
-		// Get all entries from local map
-		for key, value := range local {
-			contacts = append(contacts, NewContact(value.Person, value.Location, value.Timestamp, end))
-			delete(local, key)
-		}
+					contacts = append(contacts, value)
+				}
+			}
+		} else {
+			// Get all entries from local map
+			for key, value := range local {
+				contacts = append(contacts, NewContact(value.Person, value.Location, value.Timestamp, end))
+				delete(local, key)
+			}
 
-		// Get corresponding contacts from global map
-		for _, value := range global {
-			if value.Location == loc {
-				contacts = append(contacts, NewContact(value.Person, value.Location, startTimestamp, end))
+			// Get corresponding contacts from global map
+			for _, value := range global {
+				if value.Location == loc {
+					contacts = append(contacts, NewContact(value.Person, value.Location, startTimestamp, end))
+				}
 			}
 		}
 
@@ -224,6 +235,7 @@ func (j Journal) GetContactsForPerson(p *Person) ContactList {
 					// Store in local map
 					local[entry.SessionID] = entry
 				} else {
+					hold[entry.SessionID] = NewContact(entry.Person, entry.Location, entry.Timestamp, timeutil.NewTimestamp(j.Date.Year, j.Date.Month, j.Date.Day, 23, 59, 59))
 					global[entry.SessionID] = entry
 				}
 			case Logout:
@@ -236,6 +248,15 @@ func (j Journal) GetContactsForPerson(p *Person) ContactList {
 						// Contact before persons login
 						contacts = append(contacts, NewContact(entry.Person, entry.Location, startTimestamp, entry.Timestamp))
 					}
+				}
+
+				// Check if contact is already in hold map. If not, create a new contact.
+				if value, ok := hold[entry.SessionID]; ok {
+					value.End = entry.Timestamp
+					value.Duration = value.End.Sub(value.Start.Time)
+					hold[entry.SessionID] = value
+				} else {
+					hold[entry.SessionID] = NewContact(entry.Person, entry.Location, timeutil.NewTimestamp(j.Date.Year, j.Date.Month, j.Date.Day, 0, 0, 0), entry.Timestamp)
 				}
 
 				delete(global, entry.SessionID)
