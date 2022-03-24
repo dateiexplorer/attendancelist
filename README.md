@@ -11,7 +11,7 @@ It is not under active development.
 
 ## Requirements
 
-This project requires a fully working Go installation (Version 1.12+)
+This project requires a fully working Go installation (Version 1.12+).
 
 ## Quickstart
 
@@ -73,7 +73,7 @@ Now you can login with your credentials.
 
 ![](docs/images/example_login.png)
 
-To get information about the attendance of users, use the `analyzer` CLI-tools.
+To get information about the attendance of users, use the `analyzer` CLI-tool.
 
 If you want to get more information about specific commands read the full
 [documentation](docs/Documentation_de.pdf) (in German)
