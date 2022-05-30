@@ -15,8 +15,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dateiexplorer/attendancelist/internal/timeutil"
-	"github.com/dateiexplorer/attendancelist/internal/web"
+	"github.com/dateiexplorer/dhbw-attendancelist/internal/timeutil"
+	"github.com/dateiexplorer/dhbw-attendancelist/internal/web"
 	"github.com/stretchr/testify/assert"
 )
 

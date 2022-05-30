@@ -67,7 +67,7 @@ You can also get only the current valid token for a specific location by
 typing: `https://localhost:4443/api/tokens?location=<location>`.
 
 Use this tokens to access the Login page for a specific location under
-`https://localhost:4444?token=<token>`
+`https://localhost:4444/access?token=<token>`
 
 Now you can login with your credentials.
 

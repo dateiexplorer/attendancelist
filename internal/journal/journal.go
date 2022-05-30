@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dateiexplorer/attendancelist/internal/timeutil"
+	"github.com/dateiexplorer/dhbw-attendancelist/internal/timeutil"
 )
 
 const journalFileExtension = ".journal"

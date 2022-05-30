@@ -16,8 +16,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dateiexplorer/attendancelist/internal/journal"
-	"github.com/dateiexplorer/attendancelist/internal/web"
+	"github.com/dateiexplorer/dhbw-attendancelist/internal/journal"
+	"github.com/dateiexplorer/dhbw-attendancelist/internal/web"
 )
 
 func runQRService(config config, locs *web.Locations, validTokens *web.ValidTokens) {

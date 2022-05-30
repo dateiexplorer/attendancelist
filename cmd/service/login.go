@@ -17,9 +17,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/dateiexplorer/attendancelist/internal/journal"
-	"github.com/dateiexplorer/attendancelist/internal/timeutil"
-	"github.com/dateiexplorer/attendancelist/internal/web"
+	"github.com/dateiexplorer/dhbw-attendancelist/internal/journal"
+	"github.com/dateiexplorer/dhbw-attendancelist/internal/timeutil"
+	"github.com/dateiexplorer/dhbw-attendancelist/internal/web"
 )
 
 func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, openSessions *web.OpenSessions, sessionIDs <-chan string, sessionQueue chan<- web.SessionQueueItem) {
