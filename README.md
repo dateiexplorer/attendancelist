@@ -1,6 +1,6 @@
-# dhbw-attendancelist
+# attendancelist
 
-An attendance list application based on qr codes written in Go.
+An attendance list application based on QR codes written in Go.
 
 ## Disclaimer
 
@@ -17,14 +17,14 @@ This project requires a fully working Go installation (Version 1.12+).
 
 Clone the repository with the following command:
 ```sh
-git clone https://github.com/dateiexplorer/dhbw-attendancelist.git
+git clone https://github.com/dateiexplorer/attendancelist.git
 ```
 
 To build the executables `cd` in the root directory of this repository and
 execute the `build` command.
 
 ```sh
-cd dhwb-attendancelist
+cd attendancelist
 go build -o ./build/ ./...
 ```
 This command creates a `build` direcotry and stores to executables in it.
@@ -32,11 +32,11 @@ Now you can execute this executables, e.g.
 
 ```sh
 ./build/service \
-    -locations ./assets/locations.xml \
-    -cert ./assets/cert.pem --key ./assets/key.pem
+    -locations ./example/locations.xml \
+    -cert ./example/cert.pem --key ./example/key.pem
 ```
 
-Note that the files in the `assets` directory are sample files for local
+Note that the files in the `example` directory are sample files for local
 deployment. Never use the HTTPS certificates in a productive environment.
 Instead create them on your own.
 

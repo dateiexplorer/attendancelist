@@ -14,7 +14,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/journal"
+	"github.com/dateiexplorer/attendancelist/internal/journal"
 )
 
 // The name of the UserCookie in the browser.

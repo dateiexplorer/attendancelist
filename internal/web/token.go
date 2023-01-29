@@ -20,7 +20,7 @@ import (
 
 	"time"
 
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/journal"
+	"github.com/dateiexplorer/attendancelist/internal/journal"
 	"github.com/skip2/go-qrcode"
 )
 

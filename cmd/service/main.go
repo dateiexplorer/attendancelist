@@ -15,8 +15,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/journal"
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/web"
+	"github.com/dateiexplorer/attendancelist/internal/journal"
+	"github.com/dateiexplorer/attendancelist/internal/web"
 )
 
 const privServerSecret = "privateServerSecret"

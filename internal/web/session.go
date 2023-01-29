@@ -12,8 +12,8 @@ package web
 import (
 	"sync"
 
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/journal"
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/timeutil"
+	"github.com/dateiexplorer/attendancelist/internal/journal"
+	"github.com/dateiexplorer/attendancelist/internal/timeutil"
 )
 
 // RunSessionManager starts a concurrent goroutine which handles sessions.

@@ -1,4 +1,4 @@
-module github.com/dateiexplorer/dhbw-attendancelist
+module github.com/dateiexplorer/attendancelist
 
 go 1.17
 

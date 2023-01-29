@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/journal"
+	"github.com/dateiexplorer/attendancelist/internal/journal"
 	"github.com/stretchr/testify/assert"
 )
 

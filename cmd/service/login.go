@@ -17,17 +17,17 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/journal"
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/timeutil"
-	"github.com/dateiexplorer/dhbw-attendancelist/internal/web"
+	"github.com/dateiexplorer/attendancelist/internal/journal"
+	"github.com/dateiexplorer/attendancelist/internal/timeutil"
+	"github.com/dateiexplorer/attendancelist/internal/web"
 )
 
 func runLoginService(config config, url *url.URL, validTokens *web.ValidTokens, openSessions *web.OpenSessions, sessionIDs <-chan string, sessionQueue chan<- web.SessionQueueItem) {
 	mux := http.NewServeMux()
 
-	// Set up web assets
-	assets, _ := fs.Sub(content, "web/static")
-	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
+	// Set up web example
+	example, _ := fs.Sub(content, "web/static")
+	mux.Handle("/example/", http.StripPrefix("/example/", http.FileServer(http.FS(example))))
 
 	mux.HandleFunc(url.Path, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
